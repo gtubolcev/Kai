@@ -122,6 +122,9 @@ class SettingsViewModel(
         localDownloadingModelId = dataRepository.getLocalDownloadingModelId()?.value,
         localDownloadProgress = dataRepository.getLocalDownloadProgress()?.value,
         modelContextTokens = buildModelContextTokensMap(),
+        caldavUrl = dataRepository.getCaldavUrl(),
+        caldavUsername = dataRepository.getCaldavUsername(),
+        caldavPassword = dataRepository.getCaldavPassword(),
     )
 
     // Bound once so downstream Compose skipping works — a new SettingsActions
@@ -178,6 +181,8 @@ class SettingsViewModel(
         onPrepareExport = ::onPrepareExport,
         onImportSettings = ::onImportSettings,
         onUndoDelete = ::onUndoDelete,
+        onSaveCaldavSettings = ::onSaveCaldavSettings,
+        onTestCaldavConnection = ::onTestCaldavConnection,
     )
 
     private val _state = MutableStateFlow(buildFullState())
@@ -957,6 +962,29 @@ class SettingsViewModel(
                     else -> ConnectionStatus.Error
                 }
                 updateConnectionStatus(instanceId, status)
+            }
+        }
+    }
+
+    private fun onSaveCaldavSettings(url: String, username: String, password: String) {
+        dataRepository.setCaldavUrl(url)
+        dataRepository.setCaldavUsername(username)
+        dataRepository.setCaldavPassword(password)
+        _state.update { it.copy(caldavUrl = url, caldavUsername = username, caldavPassword = password) }
+    }
+
+    private fun onTestCaldavConnection(url: String, username: String, password: String) {
+        _state.update { it.copy(caldavTestStatus = CaldavTestStatus.Testing) }
+        viewModelScope.launch(backgroundDispatcher) {
+            val result = dataRepository.testCaldavConnection(url, username, password)
+            _state.update {
+                it.copy(
+                    caldavTestStatus = if (result.isSuccess) {
+                        CaldavTestStatus.Success("Connection successful")
+                    } else {
+                        CaldavTestStatus.Error(result.exceptionOrNull()?.message ?: "Connection failed")
+                    },
+                )
             }
         }
     }

@@ -99,6 +99,10 @@
     <string name="tool_memory_learn_description">Store a categorized learning, error resolution, or preference</string>
     <string name="tool_memory_reinforce_name">Reinforce Memory</string>
     <string name="tool_memory_reinforce_description">Reinforce a memory that produced a good outcome</string>
+    <string name="tool_caldav_create_event_name">Create CalDAV Event</string>
+    <string name="tool_caldav_create_event_description">Create a calendar event on the CalDAV server</string>
+    <string name="tool_caldav_create_task_name">Create CalDAV Task</string>
+    <string name="tool_caldav_create_task_description">Create a task (VTODO) on the CalDAV server</string>
     <string name="tool_setup_email_name">Setup Email</string>
     <string name="tool_setup_email_description">Connect an email account for reading and sending</string>
     <string name="tool_check_email_name">Check Email</string>
@@ -183,6 +187,16 @@
     <string name="settings_heartbeat_default_prompt">[HEARTBEAT] This is an automatic self-check. Review your memories and pending tasks. If everything looks good and nothing needs attention, respond with exactly: HEARTBEAT_OK\nIf something needs attention (stale memories, due tasks, user follow-ups), address it.</string>
     <string name="settings_heartbeat_model">Model</string>
     <string name="settings_heartbeat_model_default">Default</string>
+    <string name="settings_caldav">CalDAV</string>
+    <string name="settings_caldav_description">Connect a CalDAV server (Nextcloud and compatible) to create calendar events and tasks directly without DAVx⁵.</string>
+    <string name="settings_caldav_url">Collection URL</string>
+    <string name="settings_caldav_url_hint">https://cloud.example.com/remote.php/dav/calendars/user/personal/</string>
+    <string name="settings_caldav_username">Username</string>
+    <string name="settings_caldav_password">Password</string>
+    <string name="settings_caldav_save">Save</string>
+    <string name="settings_caldav_test">Test Connection</string>
+    <string name="settings_caldav_testing">Testing…</string>
+    <string name="settings_caldav_test_success">Connection successful</string>
     <string name="settings_email">Email</string>
     <string name="settings_email_description">Connect email accounts for reading and replying. Use the chat to say "connect my email". Emails are polled in the background and picked up by the heartbeat.</string>
     <string name="settings_email_empty">No email accounts connected. Say "connect my email" in the chat to get started.</string>

@@ -25,13 +25,25 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 internal fun IntegrationsContent(
+    settingsViewModel: SettingsViewModel = koinViewModel(),
     splinterlandsViewModel: SplinterlandsViewModel = koinViewModel(),
 ) {
     val splinterlandsState by splinterlandsViewModel.state.collectAsStateWithLifecycle()
+    val settingsState by settingsViewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { splinterlandsViewModel.onScreenVisible() }
 
     val uriHandler = LocalUriHandler.current
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SettingsCard {
+            CaldavSection(
+                savedUrl = settingsState.caldavUrl,
+                savedUsername = settingsState.caldavUsername,
+                savedPassword = settingsState.caldavPassword,
+                testStatus = settingsState.caldavTestStatus,
+                onSave = settingsViewModel.actions.onSaveCaldavSettings,
+                onTest = settingsViewModel.actions.onTestCaldavConnection,
+            )
+        }
         if (splinterlandsState.showSplinterlandsSection) {
             SettingsCard {
                 SplinterlandsSection(

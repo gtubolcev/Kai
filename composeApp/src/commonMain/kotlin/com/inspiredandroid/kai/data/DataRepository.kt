@@ -207,4 +207,13 @@ interface DataRepository {
     fun startLocalModelDownload(model: LocalModel)
     fun cancelLocalModelDownload()
     suspend fun deleteLocalModel(modelId: String)
+
+    // CalDAV
+    fun getCaldavUrl(): String
+    fun setCaldavUrl(url: String)
+    fun getCaldavUsername(): String
+    fun setCaldavUsername(username: String)
+    fun getCaldavPassword(): String
+    fun setCaldavPassword(password: String)
+    suspend fun testCaldavConnection(url: String, username: String, password: String): Result<Unit>
 }

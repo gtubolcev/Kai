@@ -54,10 +54,15 @@ import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.dialogs.openFileSaver
 import io.github.vinceglb.filekit.write
+import com.inspiredandroid.kai.caldav.CaldavClient
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.android.Android
 import kai.composeapp.generated.resources.Res
+import kai.composeapp.generated.resources.tool_caldav_create_event_description
+import kai.composeapp.generated.resources.tool_caldav_create_event_name
+import kai.composeapp.generated.resources.tool_caldav_create_task_description
+import kai.composeapp.generated.resources.tool_caldav_create_task_name
 import kai.composeapp.generated.resources.tool_create_calendar_event_description
 import kai.composeapp.generated.resources.tool_create_calendar_event_name
 import kai.composeapp.generated.resources.tool_open_file_description
@@ -213,6 +218,24 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
             description = "Open sandbox files in your default Android app",
             nameRes = Res.string.tool_open_file_name,
             descriptionRes = Res.string.tool_open_file_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "caldav_create_event",
+            name = "Create CalDAV Event",
+            description = "Create a calendar event on the CalDAV server",
+            nameRes = Res.string.tool_caldav_create_event_name,
+            descriptionRes = Res.string.tool_caldav_create_event_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "caldav_create_task",
+            name = "Create CalDAV Task",
+            description = "Create a task (VTODO) on the CalDAV server",
+            nameRes = Res.string.tool_caldav_create_task_name,
+            descriptionRes = Res.string.tool_caldav_create_task_description,
         ),
     )
     // SMS tools are intentionally absent here: availability is driven by the Agent-tab
@@ -430,6 +453,112 @@ actual fun getAvailableTools(): List<Tool> {
 
         if (appSettings.isEmailEnabled()) {
             addAll(EmailTools.getEmailTools(emailStore))
+        }
+
+        val caldavUrl = appSettings.getCaldavUrl()
+        if (caldavUrl.isNotBlank()) {
+            val caldavUsername = appSettings.getCaldavUsername()
+            val caldavPassword = appSettings.getCaldavPassword()
+
+            if (appSettings.isToolEnabled("caldav_create_event")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_create_event",
+                        "Create a calendar event on the CalDAV server",
+                        mapOf(
+                            "summary" to ParameterSchema("string", "Event title/summary", true),
+                            "start_datetime" to ParameterSchema("string", "Start date-time in ISO 8601 format, e.g. '20240315T143000Z' or '20240315T163000'", true),
+                            "end_datetime" to ParameterSchema("string", "End date-time in ISO 8601 format", true),
+                            "description" to ParameterSchema("string", "Event description or notes", false),
+                            "location" to ParameterSchema("string", "Event location", false),
+                        ),
+                    )
+
+                    @OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val summary = args["summary"] as? String
+                            ?: return mapOf("success" to false, "error" to "summary is required")
+                        val startDatetime = args["start_datetime"] as? String
+                            ?: return mapOf("success" to false, "error" to "start_datetime is required")
+                        val endDatetime = args["end_datetime"] as? String
+                            ?: return mapOf("success" to false, "error" to "end_datetime is required")
+                        val description = args["description"] as? String
+                        val location = args["location"] as? String
+
+                        val uid = kotlin.uuid.Uuid.random().toString()
+                        val ics = buildString {
+                            appendLine("BEGIN:VCALENDAR")
+                            appendLine("VERSION:2.0")
+                            appendLine("PRODID:-//Kai//CalDAV//EN")
+                            appendLine("BEGIN:VEVENT")
+                            appendLine("UID:$uid")
+                            appendLine("SUMMARY:$summary")
+                            appendLine("DTSTART:$startDatetime")
+                            appendLine("DTEND:$endDatetime")
+                            if (description != null) appendLine("DESCRIPTION:$description")
+                            if (location != null) appendLine("LOCATION:$location")
+                            appendLine("END:VEVENT")
+                            appendLine("END:VCALENDAR")
+                        }
+
+                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val result = CaldavClient(caldavUsername, caldavPassword).put(url, ics)
+                        return if (result.isSuccess) {
+                            mapOf("success" to true, "uid" to uid, "message" to "Event '$summary' created")
+                        } else {
+                            mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to create event"))
+                        }
+                    }
+                })
+            }
+
+            if (appSettings.isToolEnabled("caldav_create_task")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_create_task",
+                        "Create a task (VTODO) on the CalDAV server",
+                        mapOf(
+                            "summary" to ParameterSchema("string", "Task title/summary", true),
+                            "due_date" to ParameterSchema("string", "Due date in ISO 8601 date format, e.g. '20240315'", false),
+                            "priority" to ParameterSchema("integer", "Priority 1 (highest) to 9 (lowest)", false),
+                            "description" to ParameterSchema("string", "Task description or notes", false),
+                        ),
+                    )
+
+                    @OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val summary = args["summary"] as? String
+                            ?: return mapOf("success" to false, "error" to "summary is required")
+                        val dueDate = args["due_date"] as? String
+                        val priority = (args["priority"] as? Number)?.toInt()
+                        val description = args["description"] as? String
+
+                        val uid = kotlin.uuid.Uuid.random().toString()
+                        val ics = buildString {
+                            appendLine("BEGIN:VCALENDAR")
+                            appendLine("VERSION:2.0")
+                            appendLine("PRODID:-//Kai//CalDAV//EN")
+                            appendLine("BEGIN:VTODO")
+                            appendLine("UID:$uid")
+                            appendLine("SUMMARY:$summary")
+                            if (dueDate != null) appendLine("DUE;VALUE=DATE:$dueDate")
+                            if (priority != null) appendLine("PRIORITY:$priority")
+                            if (description != null) appendLine("DESCRIPTION:$description")
+                            appendLine("STATUS:NEEDS-ACTION")
+                            appendLine("END:VTODO")
+                            appendLine("END:VCALENDAR")
+                        }
+
+                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val result = CaldavClient(caldavUsername, caldavPassword).put(url, ics)
+                        return if (result.isSuccess) {
+                            mapOf("success" to true, "uid" to uid, "message" to "Task '$summary' created")
+                        } else {
+                            mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to create task"))
+                        }
+                    }
+                })
+            }
         }
 
         // SMS read tools: triple-gated. `isSmsSupported` is only true on FOSS builds

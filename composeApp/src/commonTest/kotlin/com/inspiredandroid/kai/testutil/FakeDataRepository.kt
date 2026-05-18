@@ -578,4 +578,17 @@ class FakeDataRepository : DataRepository {
     override fun startLocalModelDownload(model: LocalModel) {}
     override fun cancelLocalModelDownload() {}
     override suspend fun deleteLocalModel(modelId: String) {}
+
+    // CalDAV
+    private var caldavUrl = ""
+    private var caldavUsername = ""
+    private var caldavPassword = ""
+
+    override fun getCaldavUrl(): String = caldavUrl
+    override fun setCaldavUrl(url: String) { caldavUrl = url }
+    override fun getCaldavUsername(): String = caldavUsername
+    override fun setCaldavUsername(username: String) { caldavUsername = username }
+    override fun getCaldavPassword(): String = caldavPassword
+    override fun setCaldavPassword(password: String) { caldavPassword = password }
+    override suspend fun testCaldavConnection(url: String, username: String, password: String): Result<Unit> = Result.success(Unit)
 }

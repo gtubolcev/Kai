@@ -2013,4 +2013,17 @@ class RemoteDataRepository(
     override suspend fun deleteLocalModel(modelId: String) {
         localInferenceEngine?.deleteModel(modelId)
     }
+
+    // CalDAV
+    override fun getCaldavUrl(): String = appSettings.getCaldavUrl()
+    override fun setCaldavUrl(url: String) { appSettings.setCaldavUrl(url) }
+
+    override fun getCaldavUsername(): String = appSettings.getCaldavUsername()
+    override fun setCaldavUsername(username: String) { appSettings.setCaldavUsername(username) }
+
+    override fun getCaldavPassword(): String = appSettings.getCaldavPassword()
+    override fun setCaldavPassword(password: String) { appSettings.setCaldavPassword(password) }
+
+    override suspend fun testCaldavConnection(url: String, username: String, password: String): Result<Unit> =
+        com.inspiredandroid.kai.caldav.CaldavClient(username, password).propfind(url)
 }

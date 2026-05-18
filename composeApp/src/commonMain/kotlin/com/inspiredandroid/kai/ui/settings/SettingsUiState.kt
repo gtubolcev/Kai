@@ -114,6 +114,10 @@ data class SettingsUiState(
     val currentSponsors: ImmutableList<SponsorsResponseDto.Sponsor> = persistentListOf(),
     val pastSponsors: ImmutableList<SponsorsResponseDto.Sponsor> = persistentListOf(),
     val pendingDeletion: PendingDeletion? = null,
+    val caldavUrl: String = "",
+    val caldavUsername: String = "",
+    val caldavPassword: String = "",
+    val caldavTestStatus: CaldavTestStatus = CaldavTestStatus.Idle,
 )
 
 @Immutable
@@ -131,6 +135,13 @@ enum class McpConnectionStatus {
     Connecting,
     Connected,
     Error,
+}
+
+sealed interface CaldavTestStatus {
+    data object Idle : CaldavTestStatus
+    data object Testing : CaldavTestStatus
+    data class Success(val message: String) : CaldavTestStatus
+    data class Error(val message: String) : CaldavTestStatus
 }
 
 sealed interface PendingDeletion {

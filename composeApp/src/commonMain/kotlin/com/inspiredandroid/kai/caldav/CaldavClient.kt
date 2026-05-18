@@ -3,6 +3,7 @@
 package com.inspiredandroid.kai.caldav
 
 import com.inspiredandroid.kai.httpClient
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.put
@@ -66,6 +67,37 @@ class CaldavClient(
             }
         }
         response.bodyAsText()
+    }
+
+    suspend fun report(url: String, xmlBody: String): Result<String> = runCatching {
+        val response = client.request(url) {
+            method = HttpMethod("REPORT")
+            header("Authorization", basicAuth())
+            header("Depth", "1")
+            header("Content-Type", "application/xml")
+            setBody(xmlBody)
+        }
+        when (response.status.value) {
+            401 -> throw CaldavException("Invalid credentials")
+            404 -> throw CaldavException("Collection not found")
+            else -> if (!response.status.isSuccess() && response.status.value != 207) {
+                throw CaldavException("HTTP ${response.status.value}: ${response.bodyAsText()}")
+            }
+        }
+        response.bodyAsText()
+    }
+
+    suspend fun delete(url: String): Result<Unit> = runCatching {
+        val response = client.delete(url) {
+            header("Authorization", basicAuth())
+        }
+        when (response.status.value) {
+            401 -> throw CaldavException("Invalid credentials")
+            404 -> throw CaldavException("Not found")
+            else -> if (!response.status.isSuccess()) {
+                throw CaldavException("HTTP ${response.status.value}: ${response.bodyAsText()}")
+            }
+        }
     }
 }
 

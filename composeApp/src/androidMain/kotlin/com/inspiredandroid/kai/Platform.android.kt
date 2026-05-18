@@ -55,6 +55,7 @@ import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.dialogs.openFileSaver
 import io.github.vinceglb.filekit.write
 import com.inspiredandroid.kai.caldav.CaldavClient
+import com.inspiredandroid.kai.caldav.CaldavParser
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.okhttp.OkHttp
@@ -63,6 +64,14 @@ import kai.composeapp.generated.resources.tool_caldav_create_event_description
 import kai.composeapp.generated.resources.tool_caldav_create_event_name
 import kai.composeapp.generated.resources.tool_caldav_create_task_description
 import kai.composeapp.generated.resources.tool_caldav_create_task_name
+import kai.composeapp.generated.resources.tool_caldav_delete_event_description
+import kai.composeapp.generated.resources.tool_caldav_delete_event_name
+import kai.composeapp.generated.resources.tool_caldav_delete_task_description
+import kai.composeapp.generated.resources.tool_caldav_delete_task_name
+import kai.composeapp.generated.resources.tool_caldav_list_events_description
+import kai.composeapp.generated.resources.tool_caldav_list_events_name
+import kai.composeapp.generated.resources.tool_caldav_list_tasks_description
+import kai.composeapp.generated.resources.tool_caldav_list_tasks_name
 import kai.composeapp.generated.resources.tool_create_calendar_event_description
 import kai.composeapp.generated.resources.tool_create_calendar_event_name
 import kai.composeapp.generated.resources.tool_open_file_description
@@ -236,6 +245,42 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
             description = "Create a task (VTODO) on the CalDAV server",
             nameRes = Res.string.tool_caldav_create_task_name,
             descriptionRes = Res.string.tool_caldav_create_task_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "caldav_list_events",
+            name = "List CalDAV Events",
+            description = "List calendar events from the CalDAV server within a date range",
+            nameRes = Res.string.tool_caldav_list_events_name,
+            descriptionRes = Res.string.tool_caldav_list_events_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "caldav_delete_event",
+            name = "Delete CalDAV Event",
+            description = "Delete a calendar event from the CalDAV server by UID",
+            nameRes = Res.string.tool_caldav_delete_event_name,
+            descriptionRes = Res.string.tool_caldav_delete_event_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "caldav_list_tasks",
+            name = "List CalDAV Tasks",
+            description = "List tasks (VTODO) from the CalDAV server",
+            nameRes = Res.string.tool_caldav_list_tasks_name,
+            descriptionRes = Res.string.tool_caldav_list_tasks_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "caldav_delete_task",
+            name = "Delete CalDAV Task",
+            description = "Delete a task from the CalDAV server by UID",
+            nameRes = Res.string.tool_caldav_delete_task_name,
+            descriptionRes = Res.string.tool_caldav_delete_task_description,
         ),
     )
     // SMS tools are intentionally absent here: availability is driven by the Agent-tab
@@ -555,6 +600,152 @@ actual fun getAvailableTools(): List<Tool> {
                             mapOf("success" to true, "uid" to uid, "message" to "Task '$summary' created")
                         } else {
                             mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to create task"))
+                        }
+                    }
+                })
+            }
+
+            if (appSettings.isToolEnabled("caldav_list_events")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_list_events",
+                        "List calendar events from the CalDAV server within a date range",
+                        mapOf(
+                            "from_date" to ParameterSchema("string", "Start of range in iCalendar UTC format, e.g. '20240101T000000Z'", true),
+                            "to_date" to ParameterSchema("string", "End of range in iCalendar UTC format, e.g. '20241231T235959Z'", true),
+                        ),
+                    )
+
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val fromDate = args["from_date"] as? String
+                            ?: return mapOf("success" to false, "error" to "from_date is required")
+                        val toDate = args["to_date"] as? String
+                            ?: return mapOf("success" to false, "error" to "to_date is required")
+
+                        val xmlBody = """<?xml version="1.0" encoding="UTF-8"?>
+<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop><D:getetag/><C:calendar-data/></D:prop>
+  <C:filter>
+    <C:comp-filter name="VCALENDAR">
+      <C:comp-filter name="VEVENT">
+        <C:time-range start="$fromDate" end="$toDate"/>
+      </C:comp-filter>
+    </C:comp-filter>
+  </C:filter>
+</C:calendar-query>"""
+
+                        val result = CaldavClient(caldavUsername, caldavPassword).report(caldavUrl, xmlBody)
+                        return if (result.isSuccess) {
+                            val events = CaldavParser.parseEvents(result.getOrThrow()).map { props ->
+                                mapOf(
+                                    "uid" to (props["UID"] ?: ""),
+                                    "summary" to (props["SUMMARY"] ?: ""),
+                                    "start" to (props["DTSTART"] ?: ""),
+                                    "end" to (props["DTEND"] ?: ""),
+                                    "location" to (props["LOCATION"] ?: ""),
+                                )
+                            }
+                            mapOf("success" to true, "events" to events, "count" to events.size)
+                        } else {
+                            mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to list events"))
+                        }
+                    }
+                })
+            }
+
+            if (appSettings.isToolEnabled("caldav_delete_event")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_delete_event",
+                        "Delete a calendar event from the CalDAV server by UID",
+                        mapOf(
+                            "uid" to ParameterSchema("string", "UID of the event to delete", true),
+                        ),
+                    )
+
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val uid = args["uid"] as? String
+                            ?: return mapOf("success" to false, "error" to "uid is required")
+                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val result = CaldavClient(caldavUsername, caldavPassword).delete(url)
+                        return if (result.isSuccess) {
+                            mapOf("success" to true, "message" to "Event '$uid' deleted")
+                        } else {
+                            mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to delete event"))
+                        }
+                    }
+                })
+            }
+
+            if (appSettings.isToolEnabled("caldav_list_tasks")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_list_tasks",
+                        "List tasks (VTODO) from the CalDAV server",
+                        mapOf(
+                            "include_completed" to ParameterSchema("boolean", "Include completed tasks (default: false)", false),
+                        ),
+                    )
+
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val includeCompleted = (args["include_completed"] as? Boolean) ?: false
+
+                        val statusFilter = if (!includeCompleted) {
+                            """
+      <C:prop-filter name="STATUS">
+        <C:text-match negate-condition="yes">COMPLETED</C:text-match>
+      </C:prop-filter>"""
+                        } else ""
+
+                        val xmlBody = """<?xml version="1.0" encoding="UTF-8"?>
+<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop><D:getetag/><C:calendar-data/></D:prop>
+  <C:filter>
+    <C:comp-filter name="VCALENDAR">
+      <C:comp-filter name="VTODO">$statusFilter
+      </C:comp-filter>
+    </C:comp-filter>
+  </C:filter>
+</C:calendar-query>"""
+
+                        val result = CaldavClient(caldavUsername, caldavPassword).report(caldavUrl, xmlBody)
+                        return if (result.isSuccess) {
+                            val tasks = CaldavParser.parseTasks(result.getOrThrow()).map { props ->
+                                mapOf(
+                                    "uid" to (props["UID"] ?: ""),
+                                    "summary" to (props["SUMMARY"] ?: ""),
+                                    "due" to (props["DUE"] ?: ""),
+                                    "priority" to (props["PRIORITY"] ?: ""),
+                                    "status" to (props["STATUS"] ?: "NEEDS-ACTION"),
+                                )
+                            }
+                            mapOf("success" to true, "tasks" to tasks, "count" to tasks.size)
+                        } else {
+                            mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to list tasks"))
+                        }
+                    }
+                })
+            }
+
+            if (appSettings.isToolEnabled("caldav_delete_task")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_delete_task",
+                        "Delete a task from the CalDAV server by UID",
+                        mapOf(
+                            "uid" to ParameterSchema("string", "UID of the task to delete", true),
+                        ),
+                    )
+
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val uid = args["uid"] as? String
+                            ?: return mapOf("success" to false, "error" to "uid is required")
+                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val result = CaldavClient(caldavUsername, caldavPassword).delete(url)
+                        return if (result.isSuccess) {
+                            mapOf("success" to true, "message" to "Task '$uid' deleted")
+                        } else {
+                            mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to delete task"))
                         }
                     }
                 })

@@ -57,7 +57,7 @@ import io.github.vinceglb.filekit.write
 import com.inspiredandroid.kai.caldav.CaldavClient
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
-import io.ktor.client.engine.android.Android
+import io.ktor.client.engine.okhttp.OkHttp
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.tool_caldav_create_event_description
 import kai.composeapp.generated.resources.tool_caldav_create_event_name
@@ -75,7 +75,7 @@ import kotlinx.coroutines.Dispatchers
 import org.koin.java.KoinJavaComponent.inject
 import kotlin.coroutines.CoroutineContext
 
-actual fun httpClient(config: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(Android) {
+actual fun httpClient(config: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(OkHttp) {
     config(this)
 }
 

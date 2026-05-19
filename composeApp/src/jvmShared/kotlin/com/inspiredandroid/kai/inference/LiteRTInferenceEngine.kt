@@ -251,6 +251,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 }
                 val text = stripThinkBlocks(raw)
 
+                println("LiteRT: text preview=${text.take(300).replace("\n", "\\n")}")
                 val toolCall = if (tools.isNotEmpty()) parseFirstToolCall(text) else null
                 if (toolCall == null) {
                     return@withContext LocalChatResult(content = text, reasoningContent = firstReasoning)

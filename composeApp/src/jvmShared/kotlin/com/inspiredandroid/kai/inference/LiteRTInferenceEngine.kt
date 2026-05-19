@@ -261,7 +261,8 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 } catch (e: TimeoutCancellationException) {
                     throw InferenceTimeoutException()
                 }
-                println("LiteRT: response length=${raw.length}, hasThink=${raw.contains("<think>")} iteration=$iteration")
+                println("LiteRT: response length=${raw.length}, hasThink=${raw.contains("<think>")} hasToolCall=${raw.contains("<tool_call>")} iteration=$iteration")
+                println("LiteRT: raw preview=${raw.take(400).replace("\n", "\\n")}")
 
                 if (firstReasoning == null) {
                     firstReasoning = THINK_BLOCK_REGEX.find(raw)?.groupValues?.get(1)?.trim()?.ifBlank { null }

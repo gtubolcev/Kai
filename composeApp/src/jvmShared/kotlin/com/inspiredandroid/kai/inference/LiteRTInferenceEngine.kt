@@ -248,13 +248,19 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     append(" Never say a caldav tool is unavailable — they are always available.\n\n")
                 }
                 if (isQwen3 && tools.isNotEmpty()) {
-                    val toolsJson = "[" + tools.joinToString(",") {
-                        """{"type":"function","function":${it.descriptionJsonString}}"""
-                    } + "]"
-                    append("# Tools\n\nYou may call one or more functions to assist with the user query.\n\n")
-                    append("<tools>\n$toolsJson\n</tools>\n\n")
-                    append("For each function call, output a JSON object within <tool_call></tool_call> XML tags:\n")
-                    append("<tool_call>\n{\"name\": \"function_name\", \"arguments\": {}}\n</tool_call>\n\n")
+                    // Full OpenAPI JSON schemas are too token-heavy for a 4K context window.
+                    // Use a compact one-liner format: name + description only.
+                    append("You have access to these tools. To call one, respond with:\n")
+                    append("<tool_call>{\"name\":\"tool_name\",\"arguments\":{\"param\":\"value\"}}</tool_call>\n\n")
+                    append("Tools:\n")
+                    tools.forEach { t ->
+                        val desc = try {
+                            lenientJson.parseToJsonElement(t.descriptionJsonString)
+                                .jsonObject["description"]?.jsonPrimitive?.contentOrNull ?: ""
+                        } catch (_: Throwable) { "" }
+                        append("- ${t.name}: $desc\n")
+                    }
+                    append("\n")
                 }
                 append(sanitizedSystemPrompt ?: "")
             }.ifBlank { null }

@@ -224,13 +224,20 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             // tokens causes SIGSEGV; automaticToolCalling=false skips schema injection
             // entirely, so the model never sees the tool list.
             //
-            // Long <think> blocks (Qwen3 default) inflate per-sendMessage() time to
-            // several minutes across all loop iterations, which trips LiteRT's internal
-            // engine-pool deadline. Prepend /no_think to the user message for Qwen3 so
-            // the model skips the thinking phase and responds in seconds instead.
+            // For Qwen3 with tools: append a concise-thinking hint to the system prompt so
+            // the model reasons briefly before calling a tool rather than generating a
+            // multi-minute <think> block. /no_think is too aggressive — it prevents the
+            // model from reasoning about which tool to use, causing refusal responses.
+            val isQwen3 = currentModelId?.contains("qwen3", ignoreCase = true) == true
+            val effectiveSystemPrompt = if (isQwen3 && tools.isNotEmpty()) {
+                val base = sanitizedSystemPrompt ?: ""
+                "$base\n\nThink at most 2-3 sentences before calling a tool. Use available tools immediately — never refuse a capability that a tool can provide."
+            } else {
+                sanitizedSystemPrompt
+            }
             val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
             val config = ConversationConfig(
-                systemInstruction = sanitizedSystemPrompt?.let { Contents.of(it) },
+                systemInstruction = effectiveSystemPrompt?.let { Contents.of(it) },
                 initialMessages = initialMessages,
                 tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
@@ -242,16 +249,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             val conv = currentEngine.createConversation(config)
             conversation = conv
 
-            // Qwen3 defaults to extended thinking which can run for many minutes per
-            // iteration. With automaticToolCalling=true this accumulates across all tool
-            // loop iterations inside a single sendMessage(), eventually tripping LiteRT's
-            // internal engine-pool deadline. /no_think is a Qwen3 instruction-following
-            // signal (not a special token) that disables the thinking phase for that turn.
             val rawLastMessage = sanitizeForLiteRt(messages[lastUserIndex].content) ?: ""
-            val isQwen3 = currentModelId?.contains("qwen3", ignoreCase = true) == true
-            val lastMessage = if (isQwen3 && tools.isNotEmpty()) "/no_think\n$rawLastMessage" else rawLastMessage
             var firstReasoning: String? = null
-            var nextMessage: Message = Message.user(lastMessage)
+            var nextMessage: Message = Message.user(rawLastMessage)
 
             for (iteration in 0 until MAX_TOOL_ITERATIONS) {
                 val raw = try {

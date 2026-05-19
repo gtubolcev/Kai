@@ -218,19 +218,23 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             }
 
             println("LiteRT: tools=${tools.map { it.name }}")
-            // automaticToolCalling=false: the library injects <tools> schemas via its
-            // native chat-template processor (special tokens positioned correctly), but
-            // does NOT call OpenApiTool.execute() internally. Our manual loop below
-            // handles execution after sendMessage() returns, so network tools like
-            // web_search can take as long as they need without hitting the engine's
-            // internal task-pool deadline (DEADLINE_EXCEEDED).
+            // automaticToolCalling=true: the library injects <tools> schemas via its native
+            // chat-template processor (special tokens positioned correctly) AND runs the
+            // tool-calling loop inside sendMessage(). Manual injection of Qwen3 special
+            // tokens causes SIGSEGV; automaticToolCalling=false skips schema injection
+            // entirely, so the model never sees the tool list.
+            //
+            // Long <think> blocks (Qwen3 default) inflate per-sendMessage() time to
+            // several minutes across all loop iterations, which trips LiteRT's internal
+            // engine-pool deadline. Prepend /no_think to the user message for Qwen3 so
+            // the model skips the thinking phase and responds in seconds instead.
             val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
             val config = ConversationConfig(
                 systemInstruction = sanitizedSystemPrompt?.let { Contents.of(it) },
                 initialMessages = initialMessages,
                 tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
-                automaticToolCalling = false,
+                automaticToolCalling = true,
             )
             val prev = conversation
             conversation = null
@@ -238,7 +242,14 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             val conv = currentEngine.createConversation(config)
             conversation = conv
 
-            val lastMessage = sanitizeForLiteRt(messages[lastUserIndex].content) ?: ""
+            // Qwen3 defaults to extended thinking which can run for many minutes per
+            // iteration. With automaticToolCalling=true this accumulates across all tool
+            // loop iterations inside a single sendMessage(), eventually tripping LiteRT's
+            // internal engine-pool deadline. /no_think is a Qwen3 instruction-following
+            // signal (not a special token) that disables the thinking phase for that turn.
+            val rawLastMessage = sanitizeForLiteRt(messages[lastUserIndex].content) ?: ""
+            val isQwen3 = currentModelId?.contains("qwen3", ignoreCase = true) == true
+            val lastMessage = if (isQwen3 && tools.isNotEmpty()) "/no_think\n$rawLastMessage" else rawLastMessage
             var firstReasoning: String? = null
             var nextMessage: Message = Message.user(lastMessage)
 

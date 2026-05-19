@@ -227,7 +227,26 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 val schemas = tools.joinToString("\n") {
                     """{"type":"function","function":${it.descriptionJsonString}}"""
                 }
-                (sanitizedSystemPrompt ?: "") + "\n\n<tools>\n$schemas\n</tools>"
+                // Replicate Qwen3's chat-template tool preamble exactly. The model needs
+                // the <tool_call> example *in the system message* to know the output format —
+                // this is what the official template does and is safe here (the earlier crash
+                // was caused by the library double-injecting, not by the example text itself).
+                (sanitizedSystemPrompt ?: "") + """
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function schemas within <tools></tools> XML tags:
+
+<tools>
+$schemas
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call>"""
             } else {
                 sanitizedSystemPrompt
             }
@@ -318,8 +337,13 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
     }
 
     // Qwen3 emits a <think>…</think> block as part of its chat template; strip it before
-    // the user sees it. Safe for Gemma 4, which never emits these tags.
-    private fun stripThinkBlocks(s: String): String = THINK_BLOCK_REGEX.replace(s, "").trim()
+    // the user sees it. Quantized Qwen3 can output nested/extra tags, so also scrub any
+    // remaining bare <think>/<think> after regex replacement. Safe for Gemma 4.
+    private fun stripThinkBlocks(s: String): String =
+        THINK_BLOCK_REGEX.replace(s, "")
+            .replace("<think>", "")
+            .replace("</think>", "")
+            .trim()
 
     private fun scheduleIdleRelease() {
         idleReleaseJob?.cancel()

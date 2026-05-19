@@ -15,6 +15,7 @@ import com.inspiredandroid.kai.inference.DownloadError
 import com.inspiredandroid.kai.inference.DownloadedModel
 import com.inspiredandroid.kai.inference.EngineState
 import com.inspiredandroid.kai.inference.InferenceMessage
+import com.inspiredandroid.kai.inference.LocalChatResult
 import com.inspiredandroid.kai.inference.LocalInferenceEngine
 import com.inspiredandroid.kai.inference.LocalModel
 import com.inspiredandroid.kai.inference.LocalTool
@@ -427,7 +428,7 @@ class RemoteDataRepository(
         systemPrompt: String?,
         instanceId: String,
         history: MutableStateFlow<List<History>> = chatHistory,
-    ): String {
+    ): LocalChatResult {
         val engine = localInferenceEngine
             ?: throw IllegalStateException("On-device inference not available on this platform")
 
@@ -493,6 +494,8 @@ class RemoteDataRepository(
             engine.chat(messages = inferenceMessages, systemPrompt = systemPrompt, tools = emptyList())
         }
     }
+
+    private fun LocalChatResult.toAssistantTurn() = AssistantTurn(content, reasoningContent)
 
     /**
      * Cached OpenAPI/OpenAI-style JSON descriptions for local tools, keyed by tool name.
@@ -614,7 +617,7 @@ class RemoteDataRepository(
             // (`ask()`/`askWithTools()`) pre-fetched a CHAT_REMOTE prompt, but on-device
             // needs the trimmed variant.
             val localPrompt = getActiveSystemPrompt(SystemPromptVariant.CHAT_LOCAL)
-            return AssistantTurn(askWithLocalEngine(messages, localPrompt, instanceId, history))
+            return askWithLocalEngine(messages, localPrompt, instanceId, history).toAssistantTurn()
         }
 
         val creds = instanceCredentials(instanceId, service)
@@ -1861,7 +1864,7 @@ class RemoteDataRepository(
             // visible chatHistory for a "silent" call. LOCAL variant of the system
             // prompt so small on-device models get the right section set.
             val localPrompt = getActiveSystemPrompt(SystemPromptVariant.CHAT_LOCAL)
-            return askWithLocalEngine(messages, localPrompt, firstInstance.instanceId, MutableStateFlow(messages))
+            return askWithLocalEngine(messages, localPrompt, firstInstance.instanceId, MutableStateFlow(messages)).content
         }
 
         val systemPrompt = getActiveSystemPrompt()
@@ -1898,7 +1901,7 @@ class RemoteDataRepository(
         val messages = listOf(History(role = History.Role.USER, content = prompt))
 
         if (service.isOnDevice) {
-            return askWithLocalEngine(messages, null, instanceId, MutableStateFlow(messages))
+            return askWithLocalEngine(messages, null, instanceId, MutableStateFlow(messages)).content
         }
 
         val creds = instanceCredentials(instanceId, service)

@@ -73,6 +73,11 @@ data class LocalTool(
     val execute: suspend (jsonArgs: String) -> String,
 )
 
+data class LocalChatResult(
+    val content: String,
+    val reasoningContent: String? = null,
+)
+
 class InsufficientMemoryException : Exception()
 class InferenceTimeoutException : Exception()
 class NoModelDownloadedException : Exception()
@@ -105,7 +110,7 @@ interface LocalInferenceEngine {
         messages: List<InferenceMessage>,
         systemPrompt: String?,
         tools: List<LocalTool> = emptyList(),
-    ): String
+    ): LocalChatResult
 
     fun getDownloadedModels(): List<DownloadedModel>
     fun getAvailableModels(): List<LocalModel>

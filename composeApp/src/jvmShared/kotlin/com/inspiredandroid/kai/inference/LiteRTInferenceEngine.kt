@@ -194,7 +194,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
         messages: List<InferenceMessage>,
         systemPrompt: String?,
         tools: List<LocalTool>,
-    ): String = withContext(Dispatchers.IO) {
+    ): LocalChatResult = withContext(Dispatchers.IO) {
         idleReleaseJob?.cancel()
         try {
             val currentEngine = engine ?: throw IllegalStateException("Engine not initialized")
@@ -211,6 +211,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 }
             }
 
+            println("LiteRT: tools=${tools.map { it.name }}")
             val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
             val config = ConversationConfig(
                 systemInstruction = sanitizedSystemPrompt?.let { Contents.of(it) },
@@ -228,14 +229,19 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             conversation = conv
 
             val lastMessage = sanitizeForLiteRt(messages[lastUserIndex].content) ?: ""
-            val response = try {
+            val raw = try {
                 withTimeout(INFERENCE_TIMEOUT_MS.milliseconds) {
-                    conv.sendMessage(lastMessage)
+                    conv.sendMessage(lastMessage).toString()
                 }
             } catch (e: TimeoutCancellationException) {
                 throw InferenceTimeoutException()
             }
-            stripThinkBlocks(response.toString())
+            println("LiteRT: response length=${raw.length}, hasThink=${raw.contains("<think>")}")
+            val reasoning = THINK_BLOCK_REGEX.find(raw)?.groupValues?.get(1)?.trim()?.ifBlank { null }
+            LocalChatResult(
+                content = stripThinkBlocks(raw),
+                reasoningContent = reasoning,
+            )
         } finally {
             scheduleIdleRelease()
         }
@@ -249,7 +255,12 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
      */
     private class LocalToolOpenApiAdapter(private val localTool: LocalTool) : OpenApiTool {
         override fun getToolDescriptionJsonString(): String = localTool.descriptionJsonString
-        override fun execute(paramsJsonString: String): String = runBlocking { localTool.execute(paramsJsonString) }
+        override fun execute(paramsJsonString: String): String {
+            println("LiteRT: tool call → ${localTool.name}($paramsJsonString)")
+            val result = runBlocking { localTool.execute(paramsJsonString) }
+            println("LiteRT: tool result ← ${result.take(200)}")
+            return result
+        }
     }
 
     /**

@@ -39,6 +39,7 @@ internal fun IntegrationsContent(
                 savedUrl = settingsState.caldavUrl,
                 savedUsername = settingsState.caldavUsername,
                 savedPassword = settingsState.caldavPassword,
+                savedTasksUrl = settingsState.caldavTasksUrl,
                 testStatus = settingsState.caldavTestStatus,
                 onSave = settingsViewModel.actions.onSaveCaldavSettings,
                 onTest = settingsViewModel.actions.onTestCaldavConnection,

@@ -165,9 +165,11 @@ fun AppSettings.exportToJson(
         val url = getCaldavUrl()
         val username = getCaldavUsername()
         val password = getCaldavPassword()
+        val tasksUrl = getCaldavTasksUrl()
         if (url.isNotBlank()) map["caldav_url"] = JsonPrimitive(url)
         if (username.isNotBlank()) map["caldav_username"] = JsonPrimitive(username)
         if (password.isNotBlank()) map["caldav_password"] = JsonPrimitive(password)
+        if (tasksUrl.isNotBlank()) map["caldav_tasks_url"] = JsonPrimitive(tasksUrl)
     }
 
     return JsonObject(map)
@@ -373,6 +375,7 @@ fun AppSettings.importFromJson(
             setCaldavUrl(json["caldav_url"]?.jsonPrimitive?.content ?: "")
             setCaldavUsername(json["caldav_username"]?.jsonPrimitive?.content ?: "")
             setCaldavPassword(json["caldav_password"]?.jsonPrimitive?.content ?: "")
+            setCaldavTasksUrl(json["caldav_tasks_url"]?.jsonPrimitive?.content ?: "")
         } catch (_: Exception) {
             errors++
         }
@@ -380,6 +383,7 @@ fun AppSettings.importFromJson(
         setCaldavUrl("")
         setCaldavUsername("")
         setCaldavPassword("")
+        setCaldavTasksUrl("")
     }
 
     return errors

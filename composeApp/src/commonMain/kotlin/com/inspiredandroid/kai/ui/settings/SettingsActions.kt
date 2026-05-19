@@ -60,7 +60,7 @@ data class SettingsActions(
     val onPrepareExport: () -> Map<ImportSection, String?>,
     val onImportSettings: (ByteArray, Set<ImportSection>, Boolean) -> ImportResult,
     val onUndoDelete: () -> Unit,
-    val onSaveCaldavSettings: (url: String, username: String, password: String) -> Unit,
+    val onSaveCaldavSettings: (url: String, username: String, password: String, tasksUrl: String) -> Unit,
     val onTestCaldavConnection: (url: String, username: String, password: String) -> Unit,
 ) {
     companion object {
@@ -116,7 +116,7 @@ data class SettingsActions(
             onPrepareExport = { emptyMap() },
             onImportSettings = { _, _, _ -> ImportResult.Failure },
             onUndoDelete = {},
-            onSaveCaldavSettings = { _, _, _ -> },
+            onSaveCaldavSettings = { _, _, _, _ -> },
             onTestCaldavConnection = { _, _, _ -> },
         )
     }

@@ -583,6 +583,7 @@ class FakeDataRepository : DataRepository {
     private var caldavUrl = ""
     private var caldavUsername = ""
     private var caldavPassword = ""
+    private var caldavTasksUrl = ""
 
     override fun getCaldavUrl(): String = caldavUrl
     override fun setCaldavUrl(url: String) { caldavUrl = url }
@@ -590,5 +591,7 @@ class FakeDataRepository : DataRepository {
     override fun setCaldavUsername(username: String) { caldavUsername = username }
     override fun getCaldavPassword(): String = caldavPassword
     override fun setCaldavPassword(password: String) { caldavPassword = password }
+    override fun getCaldavTasksUrl(): String = caldavTasksUrl
+    override fun setCaldavTasksUrl(url: String) { caldavTasksUrl = url }
     override suspend fun testCaldavConnection(url: String, username: String, password: String): Result<Unit> = Result.success(Unit)
 }

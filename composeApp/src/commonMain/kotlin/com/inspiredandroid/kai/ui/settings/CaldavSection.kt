@@ -28,6 +28,8 @@ import kai.composeapp.generated.resources.settings_caldav
 import kai.composeapp.generated.resources.settings_caldav_description
 import kai.composeapp.generated.resources.settings_caldav_password
 import kai.composeapp.generated.resources.settings_caldav_save
+import kai.composeapp.generated.resources.settings_caldav_tasks_url
+import kai.composeapp.generated.resources.settings_caldav_tasks_url_hint
 import kai.composeapp.generated.resources.settings_caldav_test
 import kai.composeapp.generated.resources.settings_caldav_test_success
 import kai.composeapp.generated.resources.settings_caldav_testing
@@ -41,13 +43,15 @@ internal fun CaldavSection(
     savedUrl: String,
     savedUsername: String,
     savedPassword: String,
+    savedTasksUrl: String,
     testStatus: CaldavTestStatus,
-    onSave: (url: String, username: String, password: String) -> Unit,
+    onSave: (url: String, username: String, password: String, tasksUrl: String) -> Unit,
     onTest: (url: String, username: String, password: String) -> Unit,
 ) {
     var url by remember(savedUrl) { mutableStateOf(savedUrl) }
     var username by remember(savedUsername) { mutableStateOf(savedUsername) }
     var password by remember(savedPassword) { mutableStateOf(savedPassword) }
+    var tasksUrl by remember(savedTasksUrl) { mutableStateOf(savedTasksUrl) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -69,6 +73,16 @@ internal fun CaldavSection(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(Res.string.settings_caldav_url)) },
             placeholder = { Text(stringResource(Res.string.settings_caldav_url_hint)) },
+            singleLine = true,
+        )
+        Spacer(Modifier.height(8.dp))
+
+        KaiOutlinedTextField(
+            value = tasksUrl,
+            onValueChange = { tasksUrl = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(Res.string.settings_caldav_tasks_url)) },
+            placeholder = { Text(stringResource(Res.string.settings_caldav_tasks_url_hint)) },
             singleLine = true,
         )
         Spacer(Modifier.height(8.dp))
@@ -98,7 +112,7 @@ internal fun CaldavSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Button(
-                onClick = { onSave(url, username, password) },
+                onClick = { onSave(url, username, password, tasksUrl) },
                 modifier = Modifier.handCursor(),
             ) {
                 Text(stringResource(Res.string.settings_caldav_save))

@@ -2035,6 +2035,9 @@ class RemoteDataRepository(
     override fun getCaldavPassword(): String = appSettings.getCaldavPassword()
     override fun setCaldavPassword(password: String) { appSettings.setCaldavPassword(password) }
 
+    override fun getCaldavTasksUrl(): String = appSettings.getCaldavTasksUrl()
+    override fun setCaldavTasksUrl(url: String) { appSettings.setCaldavTasksUrl(url) }
+
     override suspend fun testCaldavConnection(url: String, username: String, password: String): Result<Unit> =
         com.inspiredandroid.kai.caldav.CaldavClient(username, password).propfind(url)
 }

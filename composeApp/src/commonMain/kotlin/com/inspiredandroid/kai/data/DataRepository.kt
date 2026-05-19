@@ -215,5 +215,7 @@ interface DataRepository {
     fun setCaldavUsername(username: String)
     fun getCaldavPassword(): String
     fun setCaldavPassword(password: String)
+    fun getCaldavTasksUrl(): String
+    fun setCaldavTasksUrl(url: String)
     suspend fun testCaldavConnection(url: String, username: String, password: String): Result<Unit>
 }

@@ -125,6 +125,7 @@ class SettingsViewModel(
         caldavUrl = dataRepository.getCaldavUrl(),
         caldavUsername = dataRepository.getCaldavUsername(),
         caldavPassword = dataRepository.getCaldavPassword(),
+        caldavTasksUrl = dataRepository.getCaldavTasksUrl(),
     )
 
     // Bound once so downstream Compose skipping works — a new SettingsActions
@@ -966,11 +967,12 @@ class SettingsViewModel(
         }
     }
 
-    private fun onSaveCaldavSettings(url: String, username: String, password: String) {
+    private fun onSaveCaldavSettings(url: String, username: String, password: String, tasksUrl: String) {
         dataRepository.setCaldavUrl(url)
         dataRepository.setCaldavUsername(username)
         dataRepository.setCaldavPassword(password)
-        _state.update { it.copy(caldavUrl = url, caldavUsername = username, caldavPassword = password) }
+        dataRepository.setCaldavTasksUrl(tasksUrl)
+        _state.update { it.copy(caldavUrl = url, caldavUsername = username, caldavPassword = password, caldavTasksUrl = tasksUrl) }
     }
 
     private fun onTestCaldavConnection(url: String, username: String, password: String) {

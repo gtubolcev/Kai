@@ -201,8 +201,10 @@
     <string name="settings_heartbeat_model_default">Default</string>
     <string name="settings_caldav">CalDAV</string>
     <string name="settings_caldav_description">Connect a CalDAV server (Nextcloud and compatible) to create calendar events and tasks directly without DAVx⁵.</string>
-    <string name="settings_caldav_url">Collection URL</string>
+    <string name="settings_caldav_url">Events Collection URL</string>
     <string name="settings_caldav_url_hint">https://cloud.example.com/remote.php/dav/calendars/user/personal/</string>
+    <string name="settings_caldav_tasks_url">Tasks Collection URL (optional)</string>
+    <string name="settings_caldav_tasks_url_hint">https://cloud.example.com/remote.php/dav/calendars/user/tasks/</string>
     <string name="settings_caldav_username">Username</string>
     <string name="settings_caldav_password">Password</string>
     <string name="settings_caldav_save">Save</string>

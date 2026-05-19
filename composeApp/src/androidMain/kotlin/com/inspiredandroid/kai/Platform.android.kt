@@ -534,6 +534,7 @@ actual fun getAvailableTools(): List<Tool> {
         if (caldavUrl.isNotBlank()) {
             val caldavUsername = appSettings.getCaldavUsername()
             val caldavPassword = appSettings.getCaldavPassword()
+            val caldavTasksUrl = appSettings.getCaldavTasksUrl().let { it.ifBlank { caldavUrl } }
 
             if (appSettings.isToolEnabled("caldav_create_event")) {
                 add(object : Tool {
@@ -624,7 +625,7 @@ actual fun getAvailableTools(): List<Tool> {
                             appendLine("END:VCALENDAR")
                         }
 
-                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val url = "${caldavTasksUrl.trimEnd('/')}/$uid.ics"
                         val result = CaldavClient(caldavUsername, caldavPassword).put(url, ics)
                         return if (result.isSuccess) {
                             mapOf("success" to true, "uid" to uid, "message" to "Task '$summary' created")
@@ -738,7 +739,7 @@ actual fun getAvailableTools(): List<Tool> {
   </C:filter>
 </C:calendar-query>"""
 
-                        val result = CaldavClient(caldavUsername, caldavPassword).report(caldavUrl, xmlBody)
+                        val result = CaldavClient(caldavUsername, caldavPassword).report(caldavTasksUrl, xmlBody)
                         return if (result.isSuccess) {
                             val tasks = CaldavParser.parseTasks(result.getOrThrow()).map { props ->
                                 mapOf(
@@ -770,7 +771,7 @@ actual fun getAvailableTools(): List<Tool> {
                     override suspend fun execute(args: Map<String, Any>): Any {
                         val uid = args["uid"] as? String
                             ?: return mapOf("success" to false, "error" to "uid is required")
-                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val url = "${caldavTasksUrl.trimEnd('/')}/$uid.ics"
                         val result = CaldavClient(caldavUsername, caldavPassword).delete(url)
                         return if (result.isSuccess) {
                             mapOf("success" to true, "message" to "Task '$uid' deleted")
@@ -846,7 +847,7 @@ actual fun getAvailableTools(): List<Tool> {
                     override suspend fun execute(args: Map<String, Any>): Any {
                         val uid = args["uid"] as? String
                             ?: return mapOf("success" to false, "error" to "uid is required")
-                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val url = "${caldavTasksUrl.trimEnd('/')}/$uid.ics"
                         val client = CaldavClient(caldavUsername, caldavPassword)
 
                         val getResult = client.getWithEtag(url)

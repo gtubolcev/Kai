@@ -229,15 +229,20 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             // multi-minute <think> block. /no_think is too aggressive — it prevents the
             // model from reasoning about which tool to use, causing refusal responses.
             val isQwen3 = currentModelId?.contains("qwen3", ignoreCase = true) == true
-            val effectiveSystemPrompt = if (isQwen3 && tools.isNotEmpty()) {
+            val toolNames = tools.map { it.name }.toSet()
+            val effectiveSystemPrompt = buildString {
                 val base = sanitizedSystemPrompt ?: ""
-                // The model's <think> block shows it decides "I can't browse the internet"
-                // even when web_search is available. This explicit rule directly overrides
-                // that refusal pattern: web_search IS the internet access.
-                "$base\n\nCRITICAL RULE: web_search IS your internet access. When asked to find information online, search for news, or look something up, call web_search immediately. Do NOT say \"I can't browse the internet\" — you can, through the web_search tool in your tools list."
-            } else {
-                sanitizedSystemPrompt
-            }
+                append(base)
+                if (isQwen3 && tools.isNotEmpty()) {
+                    // The model's <think> block shows it decides "I can't browse the internet"
+                    // even when web_search is available. This explicit rule directly overrides
+                    // that refusal pattern: web_search IS the internet access.
+                    append("\n\nCRITICAL RULE: web_search IS your internet access. When asked to find information online, search for news, or look something up, call web_search immediately. Do NOT say \"I can't browse the internet\" — you can, through the web_search tool in your tools list.")
+                }
+                if (toolNames.any { it.startsWith("caldav") }) {
+                    append("\n\nCalDAV tools: use caldav_list_tasks to list tasks, caldav_create_task to create a task, caldav_update_task to update, caldav_delete_task to delete. Use caldav_list_events for calendar events.")
+                }
+            }.ifBlank { null }
             val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
             val config = ConversationConfig(
                 systemInstruction = effectiveSystemPrompt?.let { Contents.of(it) },

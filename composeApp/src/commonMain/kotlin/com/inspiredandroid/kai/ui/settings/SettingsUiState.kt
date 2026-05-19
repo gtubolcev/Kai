@@ -117,6 +117,7 @@ data class SettingsUiState(
     val caldavUrl: String = "",
     val caldavUsername: String = "",
     val caldavPassword: String = "",
+    val caldavTasksUrl: String = "",
     val caldavTestStatus: CaldavTestStatus = CaldavTestStatus.Idle,
 )
 

@@ -249,16 +249,22 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 }
                 if (isQwen3 && tools.isNotEmpty()) {
                     // Full OpenAPI JSON schemas are too token-heavy for a 4K context window.
-                    // Use a compact one-liner format: name + description only.
+                    // Compact format: name(param1, param2): description — includes parameter
+                    // names so the model doesn't guess wrong keys (e.g. "summary" vs "query").
                     append("You have access to these tools. To call one, respond with:\n")
                     append("<tool_call>{\"name\":\"tool_name\",\"arguments\":{\"param\":\"value\"}}</tool_call>\n\n")
                     append("Tools:\n")
                     tools.forEach { t ->
-                        val desc = try {
-                            lenientJson.parseToJsonElement(t.descriptionJsonString)
-                                .jsonObject["description"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val json = try {
+                            lenientJson.parseToJsonElement(t.descriptionJsonString).jsonObject
+                        } catch (_: Throwable) { null }
+                        val desc = json?.get("description")?.jsonPrimitive?.contentOrNull ?: ""
+                        val params = try {
+                            json?.get("parameters")?.jsonObject
+                                ?.get("properties")?.jsonObject
+                                ?.keys?.joinToString(", ") ?: ""
                         } catch (_: Throwable) { "" }
-                        append("- ${t.name}: $desc\n")
+                        append("- ${t.name}($params): $desc\n")
                     }
                     append("\n")
                 }

@@ -864,15 +864,17 @@ private fun LiteRTSettings(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                KaiSlider(
-                    value = contextSliderValue,
-                    onValueChange = { contextSliderValue = it },
-                    onValueChangeFinished = {
-                        onChangeModelContextTokens(model.id, contextTokens)
-                    },
-                    valueRange = 0f..steps.toFloat(),
-                    steps = steps - 1,
-                )
+                if (steps > 0) {
+                    KaiSlider(
+                        value = contextSliderValue,
+                        onValueChange = { contextSliderValue = it },
+                        onValueChangeFinished = {
+                            onChangeModelContextTokens(model.id, contextTokens)
+                        },
+                        valueRange = 0f..steps.toFloat(),
+                        steps = steps - 1,
+                    )
+                }
                 if (isDownloading && downloadProgress != null) {
                     Spacer(Modifier.height(8.dp))
                     LinearProgressIndicator(

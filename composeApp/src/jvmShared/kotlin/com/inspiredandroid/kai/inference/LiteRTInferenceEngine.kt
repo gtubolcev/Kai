@@ -7,9 +7,7 @@ import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
-import com.google.ai.edge.litertlm.OpenApiTool
 import com.google.ai.edge.litertlm.SamplerConfig
-import com.google.ai.edge.litertlm.tool
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -218,15 +216,24 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             }
 
             println("LiteRT: tools=${tools.map { it.name }}")
-            val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
+            // Inject tool definitions directly into the system prompt in Qwen3's expected
+            // format. With automaticToolCalling=false the library skips its own tool-schema
+            // injection, so the model never sees the tools and hallucinates "I can't
+            // interact with external tools". Manual injection restores tool visibility
+            // regardless of which model is loaded.
+            val effectiveSystemPrompt = if (tools.isNotEmpty()) {
+                val schemas = tools.joinToString("\n") {
+                    """{"type":"function","function":${it.descriptionJsonString}}"""
+                }
+                val toolsSection = "\n\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function schemas within <tools></tools> XML tags:\n<tools>\n$schemas\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>"
+                (sanitizedSystemPrompt ?: "") + toolsSection
+            } else {
+                sanitizedSystemPrompt
+            }
             val config = ConversationConfig(
-                systemInstruction = sanitizedSystemPrompt?.let { Contents.of(it) },
+                systemInstruction = effectiveSystemPrompt?.let { Contents.of(it) },
                 initialMessages = initialMessages,
-                tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
-                // automaticToolCalling = false: we drive the tool loop ourselves.
-                // The library's built-in parser doesn't handle Qwen3's <tool_call> format
-                // correctly, causing "No group 1" errors and 25-iteration spin loops.
                 automaticToolCalling = false,
             )
             val prev = conversation
@@ -278,22 +285,6 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             )
         } finally {
             scheduleIdleRelease()
-        }
-    }
-
-    /**
-     * Adapter that exposes a Kai [LocalTool] (suspend execute) to litert-lm's [OpenApiTool]
-     * (synchronous execute). The bridge uses [runBlocking] because the engine calls
-     * [execute] on its own worker thread (we're already inside `Dispatchers.IO` from
-     * [chat]) and waits for the result before continuing the tool loop.
-     */
-    private class LocalToolOpenApiAdapter(private val localTool: LocalTool) : OpenApiTool {
-        override fun getToolDescriptionJsonString(): String = localTool.descriptionJsonString
-        override fun execute(paramsJsonString: String): String {
-            println("LiteRT: tool call → ${localTool.name}($paramsJsonString)")
-            val result = runBlocking { localTool.execute(paramsJsonString) }
-            println("LiteRT: tool result ← ${result.take(200)}")
-            return result
         }
     }
 

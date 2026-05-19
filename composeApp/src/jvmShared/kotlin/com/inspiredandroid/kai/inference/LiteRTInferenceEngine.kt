@@ -290,7 +290,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
     private class LocalToolOpenApiAdapter(private val localTool: LocalTool) : OpenApiTool {
         override fun getToolDescriptionJsonString(): String = localTool.descriptionJsonString
         override fun execute(paramsJsonString: String): String {
+            println("LiteRT: tool call → ${localTool.name}($paramsJsonString)")
             val result = runBlocking { localTool.execute(paramsJsonString) }
+            println("LiteRT: tool result ← ${result.take(200)}")
             return result
         }
     }

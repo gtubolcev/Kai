@@ -63,6 +63,7 @@ import kai.composeapp.generated.resources.settings_import_section_soul
 import kai.composeapp.generated.resources.settings_import_section_tools
 import kai.composeapp.generated.resources.settings_import_success
 import kai.composeapp.generated.resources.settings_mcp_cancel
+import kai.composeapp.generated.resources.settings_caldav
 import kai.composeapp.generated.resources.settings_sms
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableMap

@@ -29,10 +29,13 @@ jobs:
         run: chmod +x gradlew
 
       - name: Restore debug keystore
-        if: ${{ secrets.DEBUG_KEYSTORE_B64 != '' }}
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
         run: |
-          mkdir -p ~/.android
-          echo "${{ secrets.DEBUG_KEYSTORE_B64 }}" | base64 --decode > ~/.android/debug.keystore
+          if [ -n "$DEBUG_KEYSTORE_B64" ]; then
+            mkdir -p ~/.android
+            echo "$DEBUG_KEYSTORE_B64" | base64 --decode > ~/.android/debug.keystore
+          fi
 
       - name: Build Debug APK
         run: ./gradlew :androidApp:assembleFossDebug --stacktrace

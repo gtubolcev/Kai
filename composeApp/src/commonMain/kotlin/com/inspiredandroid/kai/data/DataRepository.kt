@@ -208,6 +208,10 @@ interface DataRepository {
     fun cancelLocalModelDownload()
     suspend fun deleteLocalModel(modelId: String)
 
+    // Hugging Face token (for gated model downloads)
+    fun getHfToken(): String
+    fun setHfToken(token: String)
+
     // CalDAV
     fun getCaldavUrl(): String
     fun setCaldavUrl(url: String)

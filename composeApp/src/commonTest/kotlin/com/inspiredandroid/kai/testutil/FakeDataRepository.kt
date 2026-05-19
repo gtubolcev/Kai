@@ -579,6 +579,11 @@ class FakeDataRepository : DataRepository {
     override fun cancelLocalModelDownload() {}
     override suspend fun deleteLocalModel(modelId: String) {}
 
+    // Hugging Face token
+    private var hfToken = ""
+    override fun getHfToken(): String = hfToken
+    override fun setHfToken(token: String) { hfToken = token }
+
     // CalDAV
     private var caldavUrl = ""
     private var caldavUsername = ""

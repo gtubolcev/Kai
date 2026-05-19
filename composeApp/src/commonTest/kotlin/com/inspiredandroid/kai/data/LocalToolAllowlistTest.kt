@@ -25,6 +25,14 @@ class LocalToolAllowlistTest {
             "memory_forget",
             "memory_reinforce",
             "execute_shell_command",
+            "caldav_create_event",
+            "caldav_create_task",
+            "caldav_list_events",
+            "caldav_delete_event",
+            "caldav_list_tasks",
+            "caldav_delete_task",
+            "caldav_update_event",
+            "caldav_update_task",
         )
         assertEquals(expected, LOCAL_TOOL_ALLOWLIST)
     }

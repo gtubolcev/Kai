@@ -86,6 +86,7 @@ import kai.composeapp.generated.resources.litert_cancel
 import kai.composeapp.generated.resources.litert_context_size
 import kai.composeapp.generated.resources.litert_download
 import kai.composeapp.generated.resources.litert_error_download_incomplete
+import kai.composeapp.generated.resources.litert_hf_token_label
 import kai.composeapp.generated.resources.litert_error_network
 import kai.composeapp.generated.resources.litert_error_not_enough_disk_space
 import kai.composeapp.generated.resources.litert_free_space
@@ -97,6 +98,7 @@ import kai.composeapp.generated.resources.litert_recommended
 import kai.composeapp.generated.resources.litert_tool_support
 import kai.composeapp.generated.resources.settings_add_service
 import kai.composeapp.generated.resources.settings_api_key_label
+import kai.composeapp.generated.resources.settings_caldav_save
 import kai.composeapp.generated.resources.settings_api_key_optional_label
 import kai.composeapp.generated.resources.settings_base_url_label
 import kai.composeapp.generated.resources.settings_become_sponsor
@@ -332,6 +334,8 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                     onDeleteLocalModel = actions.onDeleteLocalModel,
                     onChangeModelContextTokens = actions.onChangeModelContextTokens,
                     modelContextTokens = uiState.modelContextTokens,
+                    hfToken = uiState.hfToken,
+                    onSaveHfToken = actions.onSaveHfToken,
                 )
             }
         }
@@ -451,6 +455,8 @@ private fun ConfiguredServiceCardContent(
     onDeleteLocalModel: (String) -> Unit = {},
     onChangeModelContextTokens: (String, Int) -> Unit = { _, _ -> },
     modelContextTokens: ImmutableMap<String, Int> = persistentMapOf(),
+    hfToken: String = "",
+    onSaveHfToken: (String) -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -538,6 +544,8 @@ private fun ConfiguredServiceCardContent(
                         onDeleteModel = onDeleteLocalModel,
                         onChangeModelContextTokens = onChangeModelContextTokens,
                         modelContextTokens = modelContextTokens,
+                        hfToken = hfToken,
+                        onSaveHfToken = onSaveHfToken,
                     )
                 } else if (entry.service is Service.OpenAICompatible) {
                     OpenAICompatibleSettings(
@@ -736,6 +744,8 @@ private fun LiteRTSettings(
     onDeleteModel: (String) -> Unit,
     onChangeModelContextTokens: (String, Int) -> Unit,
     modelContextTokens: ImmutableMap<String, Int>,
+    hfToken: String = "",
+    onSaveHfToken: (String) -> Unit = {},
 ) {
     val downloadedIds = remember(downloadedModels) { downloadedModels.map { it.id }.toSet() }
 
@@ -754,6 +764,26 @@ private fun LiteRTSettings(
     )
 
     Spacer(Modifier.height(12.dp))
+
+    val hasGatedModels = remember(availableModels) { availableModels.any { it.requiresHfToken } }
+    if (hasGatedModels) {
+        var tokenDraft by remember(hfToken) { mutableStateOf(hfToken) }
+        ApiKeyField(
+            apiKey = tokenDraft,
+            onChangeApiKey = { tokenDraft = it },
+            labelText = stringResource(Res.string.litert_hf_token_label),
+        )
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+            TextButton(
+                onClick = { onSaveHfToken(tokenDraft) },
+                modifier = Modifier.handCursor(),
+            ) {
+                Text(stringResource(Res.string.settings_caldav_save))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
 
     availableModels.forEach { model ->
         val isDownloaded = model.id in downloadedIds

@@ -119,6 +119,7 @@ data class SettingsUiState(
     val caldavPassword: String = "",
     val caldavTasksUrl: String = "",
     val caldavTestStatus: CaldavTestStatus = CaldavTestStatus.Idle,
+    val hfToken: String = "",
 )
 
 @Immutable

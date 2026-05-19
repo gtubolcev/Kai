@@ -2014,8 +2014,12 @@ class RemoteDataRepository(
     }
 
     override fun startLocalModelDownload(model: LocalModel) {
-        localInferenceEngine?.startDownload(model)
+        val token = appSettings.getHfToken().ifBlank { null }
+        localInferenceEngine?.startDownload(model, token)
     }
+
+    override fun getHfToken(): String = appSettings.getHfToken()
+    override fun setHfToken(token: String) { appSettings.setHfToken(token) }
 
     override fun cancelLocalModelDownload() {
         localInferenceEngine?.cancelDownload()

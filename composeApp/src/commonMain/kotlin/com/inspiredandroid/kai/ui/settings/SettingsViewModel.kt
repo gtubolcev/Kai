@@ -126,6 +126,7 @@ class SettingsViewModel(
         caldavUsername = dataRepository.getCaldavUsername(),
         caldavPassword = dataRepository.getCaldavPassword(),
         caldavTasksUrl = dataRepository.getCaldavTasksUrl(),
+        hfToken = dataRepository.getHfToken(),
     )
 
     // Bound once so downstream Compose skipping works — a new SettingsActions
@@ -184,6 +185,7 @@ class SettingsViewModel(
         onUndoDelete = ::onUndoDelete,
         onSaveCaldavSettings = ::onSaveCaldavSettings,
         onTestCaldavConnection = ::onTestCaldavConnection,
+        onSaveHfToken = ::onSaveHfToken,
     )
 
     private val _state = MutableStateFlow(buildFullState())
@@ -989,5 +991,10 @@ class SettingsViewModel(
                 )
             }
         }
+    }
+
+    private fun onSaveHfToken(token: String) {
+        dataRepository.setHfToken(token)
+        _state.update { it.copy(hfToken = token) }
     }
 }

@@ -258,6 +258,7 @@
     <string name="litert_error_no_model">No model downloaded. Go to Settings to download a model.</string>
     <string name="litert_error_network">Download failed. Check your network connection and try again.</string>
     <string name="litert_error_download_incomplete">Download incomplete. Please try again.</string>
+    <string name="litert_hf_token_label">Hugging Face Token (required for gated models)</string>
     <string name="settings_add_service">Add Service</string>
     <string name="settings_remove_service">Remove</string>
     <string name="settings_free_fallback">Use as fallback</string>

@@ -71,6 +71,18 @@ val MODEL_CATALOG = listOf(
         maxContextTokens = 32_768,
         kvPerTokenBytes = 35_000,
     ),
+    LocalModel(
+        id = "functiongemma-270m-mobile",
+        displayName = "FunctionGemma 270M",
+        fileName = "mobile_actions_q8_ekv1024.litertlm",
+        sizeBytes = 289_000_000L,
+        downloadUrl = "https://huggingface.co/litert-community/functiongemma-270m-ft-mobile-actions/resolve/main/mobile_actions_q8_ekv1024.litertlm",
+        gpuMemoryMb = 300,
+        defaultContextTokens = 1_024,
+        maxContextTokens = 1_024,
+        kvPerTokenBytes = 5_000,
+        requiresHfToken = true,
+    ),
 )
 
 class LiteRTInferenceEngine : LocalInferenceEngine {
@@ -407,7 +419,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
 
     override fun getFreeSpaceBytes(): Long = getAvailableDiskSpaceBytes(getModelStorageDirectory())
 
-    override fun startDownload(model: LocalModel) {
+    override fun startDownload(model: LocalModel, hfToken: String?) {
         cancelDownload()
         downloadJob = scope.launch {
             _downloadingModelId.value = model.id
@@ -435,6 +447,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 connection.instanceFollowRedirects = true
                 connection.connectTimeout = 30_000
                 connection.readTimeout = 60_000
+                if (model.requiresHfToken && !hfToken.isNullOrBlank()) {
+                    connection.setRequestProperty("Authorization", "Bearer $hfToken")
+                }
                 connection.connect()
 
                 val responseCode = connection.responseCode

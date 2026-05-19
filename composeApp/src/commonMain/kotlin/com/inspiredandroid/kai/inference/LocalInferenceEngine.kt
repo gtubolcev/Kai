@@ -14,6 +14,7 @@ data class LocalModel(
     val maxContextTokens: Int,
     val kvPerTokenBytes: Int,
     val isRecommended: Boolean = false,
+    val requiresHfToken: Boolean = false,
 )
 
 enum class DevicePerformance {
@@ -115,7 +116,7 @@ interface LocalInferenceEngine {
     fun getDownloadedModels(): List<DownloadedModel>
     fun getAvailableModels(): List<LocalModel>
     fun getFreeSpaceBytes(): Long
-    fun startDownload(model: LocalModel)
+    fun startDownload(model: LocalModel, hfToken: String? = null)
     fun cancelDownload()
     suspend fun deleteModel(modelId: String)
 }

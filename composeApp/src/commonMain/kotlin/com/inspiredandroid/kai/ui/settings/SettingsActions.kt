@@ -62,6 +62,7 @@ data class SettingsActions(
     val onUndoDelete: () -> Unit,
     val onSaveCaldavSettings: (url: String, username: String, password: String, tasksUrl: String) -> Unit,
     val onTestCaldavConnection: (url: String, username: String, password: String) -> Unit,
+    val onSaveHfToken: (String) -> Unit,
 ) {
     companion object {
         val NoOp = SettingsActions(
@@ -118,6 +119,7 @@ data class SettingsActions(
             onUndoDelete = {},
             onSaveCaldavSettings = { _, _, _, _ -> },
             onTestCaldavConnection = { _, _, _ -> },
+            onSaveHfToken = {},
         )
     }
 }

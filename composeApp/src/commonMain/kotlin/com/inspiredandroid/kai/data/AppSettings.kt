@@ -343,6 +343,9 @@ class AppSettings(internal val settings: Settings) {
     fun getCaldavTasksUrl(): String = settings.getString(KEY_CALDAV_TASKS_URL, "")
     fun setCaldavTasksUrl(url: String) { settings.putString(KEY_CALDAV_TASKS_URL, url) }
 
+    fun getHfToken(): String = settings.getString(KEY_HF_TOKEN, "")
+    fun setHfToken(token: String) { settings.putString(KEY_HF_TOKEN, token) }
+
     fun getScheduledTasksJson(): String = settings.getString(KEY_SCHEDULED_TASKS, "[]")
 
     fun setScheduledTasksJson(json: String) {
@@ -608,6 +611,7 @@ class AppSettings(internal val settings: Settings) {
         const val KEY_CALDAV_USERNAME = "caldav_username"
         const val KEY_CALDAV_PASSWORD = "caldav_password"
         const val KEY_CALDAV_TASKS_URL = "caldav_tasks_url"
+        const val KEY_HF_TOKEN = "hf_token"
 
         // Basic memory guidance shared by every chat variant. The advanced `## Structured
         // Learning` block lives in `ChatSystemPromptBuilder.DEFAULT_STRUCTURED_LEARNING_SECTION`

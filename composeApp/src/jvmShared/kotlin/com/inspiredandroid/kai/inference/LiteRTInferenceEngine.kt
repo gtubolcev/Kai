@@ -227,10 +227,12 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 val schemas = tools.joinToString("\n") {
                     """{"type":"function","function":${it.descriptionJsonString}}"""
                 }
-                // Replicate Qwen3's chat-template tool preamble exactly. The model needs
-                // the <tool_call> example *in the system message* to know the output format —
-                // this is what the official template does and is safe here (the earlier crash
-                // was caused by the library double-injecting, not by the example text itself).
+                // Inject tool schemas the same way Qwen3's chat template does —
+                // <tools>...</tools> in the system message. We deliberately omit any
+                // <tool_call> example text because <tool_call> is a Qwen3 special token;
+                // placing it in the system message via the LiteRT API causes a native
+                // SIGSEGV (the decoder only expects it in assistant-output position).
+                // The model knows the output format from training when it sees <tools>.
                 (sanitizedSystemPrompt ?: "") + """
 
 # Tools
@@ -243,10 +245,7 @@ You are provided with function schemas within <tools></tools> XML tags:
 $schemas
 </tools>
 
-For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
-<tool_call>
-{"name": <function-name>, "arguments": <args-json-object>}
-</tool_call>"""
+For each function call, return a JSON object with "name" and "arguments" keys, wrapped in tool call XML tags."""
             } else {
                 sanitizedSystemPrompt
             }

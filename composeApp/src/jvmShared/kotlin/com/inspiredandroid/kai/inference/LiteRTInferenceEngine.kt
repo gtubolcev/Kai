@@ -218,42 +218,21 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             }
 
             println("LiteRT: tools=${tools.map { it.name }}")
-            // With automaticToolCalling=false the library skips its own tool-schema injection,
-            // so the model never sees tool definitions. We re-inject them by appending a
-            // <tools>...</tools> block to the system prompt — exactly what Qwen3's chat
-            // template does. We deliberately omit any <tool_call> example text because those
-            // are also special tokens; placing them in the system message confuses the model.
-            val effectiveSystemPrompt = if (tools.isNotEmpty()) {
-                val schemas = tools.joinToString("\n") {
-                    """{"type":"function","function":${it.descriptionJsonString}}"""
-                }
-                // Inject tool schemas the same way Qwen3's chat template does —
-                // <tools>...</tools> in the system message. We deliberately omit any
-                // <tool_call> example text because <tool_call> is a Qwen3 special token;
-                // placing it in the system message via the LiteRT API causes a native
-                // SIGSEGV (the decoder only expects it in assistant-output position).
-                // The model knows the output format from training when it sees <tools>.
-                (sanitizedSystemPrompt ?: "") + """
-
-# Tools
-
-You may call one or more functions to assist with the user query.
-
-You are provided with function schemas within <tools></tools> XML tags:
-
-<tools>
-$schemas
-</tools>
-
-For each function call, return a JSON object with "name" and "arguments" keys, wrapped in tool call XML tags."""
-            } else {
-                sanitizedSystemPrompt
-            }
+            // Use automaticToolCalling=true so the library injects <tools> schemas via its
+            // own native chat-template processor. Manual string injection of Qwen3 special
+            // tokens (<tools>, <tool_call>) through the text API causes the native decoder
+            // to produce garbage or SIGSEGV — the template processor handles positioning
+            // of these tokens correctly; our string API does not.
+            // With automaticToolCalling=true, tool execution happens inside sendMessage():
+            // the library calls our LocalToolOpenApiAdapter.execute() for each tool call
+            // and returns the final response after all iterations complete.
+            val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
             val config = ConversationConfig(
-                systemInstruction = effectiveSystemPrompt?.let { Contents.of(it) },
+                systemInstruction = sanitizedSystemPrompt?.let { Contents.of(it) },
                 initialMessages = initialMessages,
+                tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
-                automaticToolCalling = false,
+                automaticToolCalling = true,
             )
             val prev = conversation
             conversation = null

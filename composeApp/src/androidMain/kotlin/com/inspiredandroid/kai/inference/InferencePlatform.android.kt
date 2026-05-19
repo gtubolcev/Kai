@@ -10,7 +10,8 @@ import org.koin.java.KoinJavaComponent.inject
 
 private val context: Context by inject(Context::class.java)
 
-actual fun getModelStorageDirectory(): String = context.filesDir.absolutePath + "/litert_models"
+actual fun getModelStorageDirectory(): String =
+    (context.getExternalFilesDir(null) ?: context.filesDir).absolutePath + "/litert_models"
 
 actual fun getModelCacheDirectory(): String = context.cacheDir.absolutePath
 

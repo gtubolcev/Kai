@@ -218,11 +218,22 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             }
 
             println("LiteRT: tools=${tools.map { it.name }}")
-            val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
+            // With automaticToolCalling=false the library skips its own tool-schema injection,
+            // so the model never sees tool definitions. We re-inject them by appending a
+            // <tools>...</tools> block to the system prompt — exactly what Qwen3's chat
+            // template does. We deliberately omit any <tool_call> example text because those
+            // are also special tokens; placing them in the system message confuses the model.
+            val effectiveSystemPrompt = if (tools.isNotEmpty()) {
+                val schemas = tools.joinToString("\n") {
+                    """{"type":"function","function":${it.descriptionJsonString}}"""
+                }
+                (sanitizedSystemPrompt ?: "") + "\n\n<tools>\n$schemas\n</tools>"
+            } else {
+                sanitizedSystemPrompt
+            }
             val config = ConversationConfig(
-                systemInstruction = sanitizedSystemPrompt?.let { Contents.of(it) },
+                systemInstruction = effectiveSystemPrompt?.let { Contents.of(it) },
                 initialMessages = initialMessages,
-                tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
                 automaticToolCalling = false,
             )

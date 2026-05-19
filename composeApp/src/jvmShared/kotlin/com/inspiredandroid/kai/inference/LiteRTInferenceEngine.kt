@@ -1,6 +1,7 @@
 package com.inspiredandroid.kai.inference
 
 import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
@@ -9,6 +10,11 @@ import com.google.ai.edge.litertlm.Message
 import com.google.ai.edge.litertlm.OpenApiTool
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -218,9 +224,10 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 initialMessages = initialMessages,
                 tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
-                // automaticToolCalling = true drives the parser; only enable when we
-                // actually have tools, otherwise plain-text responses get parsed as FCs.
-                automaticToolCalling = toolProviders.isNotEmpty(),
+                // automaticToolCalling = false: we drive the tool loop ourselves.
+                // The library's built-in parser doesn't handle Qwen3's <tool_call> format
+                // correctly, causing "No group 1" errors and 25-iteration spin loops.
+                automaticToolCalling = false,
             )
             val prev = conversation
             conversation = null
@@ -229,18 +236,45 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             conversation = conv
 
             val lastMessage = sanitizeForLiteRt(messages[lastUserIndex].content) ?: ""
-            val raw = try {
-                withTimeout(INFERENCE_TIMEOUT_MS.milliseconds) {
-                    conv.sendMessage(lastMessage).toString()
+            var firstReasoning: String? = null
+            var nextMessage: Message = Message.user(lastMessage)
+
+            for (iteration in 0 until MAX_TOOL_ITERATIONS) {
+                val raw = try {
+                    withTimeout(INFERENCE_TIMEOUT_MS.milliseconds) {
+                        conv.sendMessage(nextMessage).toString()
+                    }
+                } catch (e: TimeoutCancellationException) {
+                    throw InferenceTimeoutException()
                 }
-            } catch (e: TimeoutCancellationException) {
-                throw InferenceTimeoutException()
+                println("LiteRT: response length=${raw.length}, hasThink=${raw.contains("<think>")} iteration=$iteration")
+
+                if (firstReasoning == null) {
+                    firstReasoning = THINK_BLOCK_REGEX.find(raw)?.groupValues?.get(1)?.trim()?.ifBlank { null }
+                }
+                val text = stripThinkBlocks(raw)
+
+                val toolCall = if (tools.isNotEmpty()) parseFirstToolCall(text) else null
+                if (toolCall == null) {
+                    return@withContext LocalChatResult(content = text, reasoningContent = firstReasoning)
+                }
+
+                val localTool = tools.find { it.name == toolCall.name }
+                val toolResult = if (localTool != null) {
+                    println("LiteRT: tool call → ${toolCall.name}(${toolCall.arguments})")
+                    val result = runBlocking { localTool.execute(toolCall.arguments) }
+                    println("LiteRT: tool result ← ${result.take(200)}")
+                    result
+                } else {
+                    """{"error":"unknown tool '${toolCall.name}'"}"""
+                }
+
+                nextMessage = Message.tool(Contents.of(Content.ToolResponse(toolCall.name, toolResult)))
             }
-            println("LiteRT: response length=${raw.length}, hasThink=${raw.contains("<think>")}")
-            val reasoning = THINK_BLOCK_REGEX.find(raw)?.groupValues?.get(1)?.trim()?.ifBlank { null }
+
             LocalChatResult(
-                content = stripThinkBlocks(raw),
-                reasoningContent = reasoning,
+                content = "Unable to complete the request (tool loop limit reached).",
+                reasoningContent = firstReasoning,
             )
         } finally {
             scheduleIdleRelease()
@@ -294,13 +328,34 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
         }
     }
 
+    private data class ParsedToolCall(val name: String, val arguments: String)
+
+    private fun parseFirstToolCall(text: String): ParsedToolCall? {
+        val start = text.indexOf("<tool_call>")
+        if (start < 0) return null
+        val end = text.indexOf("</tool_call>", start + 11)
+        val inner = (if (end >= 0) text.substring(start + 11, end) else text.substring(start + 11)).trim()
+        if (inner.isEmpty() || !inner.startsWith("{")) return null
+        return try {
+            val obj = lenientJson.parseToJsonElement(inner).jsonObject
+            val name = obj["name"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: return null
+            val argsElem = obj["arguments"] ?: obj["parameters"]
+            val args = if (argsElem is JsonObject) argsElem.toString() else "{}"
+            ParsedToolCall(name, args)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     companion object {
         private const val IDLE_RELEASE_MS = 5L * 60 * 1000 // 5 minutes
         private const val INFERENCE_TIMEOUT_MS = 120_000L // 2 minutes
+        private const val MAX_TOOL_ITERATIONS = 6
         private const val MIN_MEMORY_HEADROOM_BYTES = 512L * 1024 * 1024 // 512 MB
         private const val DOWNLOAD_SPACE_BUFFER_BYTES = 500L * 1024 * 1024 // 500 MB
         private const val GPU_DRAIN_DELAY_MS = 750L
         private val THINK_BLOCK_REGEX = Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL)
+        private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
     }
 
     override fun getDownloadedModels(): List<DownloadedModel> {

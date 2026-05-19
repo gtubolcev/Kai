@@ -111,6 +111,10 @@
     <string name="tool_caldav_list_tasks_description">List tasks (VTODO) from the CalDAV server</string>
     <string name="tool_caldav_delete_task_name">Delete CalDAV Task</string>
     <string name="tool_caldav_delete_task_description">Delete a task from the CalDAV server by UID</string>
+    <string name="tool_caldav_update_event_name">Update CalDAV Event</string>
+    <string name="tool_caldav_update_event_description">Update an existing calendar event on the CalDAV server</string>
+    <string name="tool_caldav_update_task_name">Update CalDAV Task</string>
+    <string name="tool_caldav_update_task_description">Update an existing task on the CalDAV server</string>
     <string name="tool_setup_email_name">Setup Email</string>
     <string name="tool_setup_email_description">Connect an email account for reading and sending</string>
     <string name="tool_check_email_name">Check Email</string>

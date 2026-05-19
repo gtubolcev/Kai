@@ -13,6 +13,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
 import io.ktor.http.isSuccess
 import kotlin.io.encoding.Base64
+import io.ktor.client.statement.HttpResponse
 
 class CaldavClient(
     private val username: String,
@@ -40,15 +41,17 @@ class CaldavClient(
         }
     }
 
-    suspend fun put(url: String, icsBody: String): Result<Unit> = runCatching {
+    suspend fun put(url: String, icsBody: String, etag: String? = null): Result<Unit> = runCatching {
         val response = client.put(url) {
             header("Authorization", basicAuth())
             header("Content-Type", "text/calendar; charset=utf-8")
+            if (etag != null) header("If-Match", etag)
             setBody(icsBody)
         }
         when (response.status.value) {
             401 -> throw CaldavException("Invalid credentials")
             404 -> throw CaldavException("Collection not found")
+            412 -> throw CaldavException("Conflict: resource was modified by another client")
             else -> if (!response.status.isSuccess()) {
                 throw CaldavException("HTTP ${response.status.value}: ${response.bodyAsText()}")
             }
@@ -59,6 +62,19 @@ class CaldavClient(
         val response = client.get(url) {
             header("Authorization", basicAuth())
         }
+        checkGetResponse(response)
+        response.bodyAsText()
+    }
+
+    suspend fun getWithEtag(url: String): Result<Pair<String, String?>> = runCatching {
+        val response = client.get(url) {
+            header("Authorization", basicAuth())
+        }
+        checkGetResponse(response)
+        response.bodyAsText() to response.headers["ETag"]
+    }
+
+    private fun checkGetResponse(response: HttpResponse) {
         when (response.status.value) {
             401 -> throw CaldavException("Invalid credentials")
             404 -> throw CaldavException("Not found")
@@ -66,7 +82,6 @@ class CaldavClient(
                 throw CaldavException("HTTP ${response.status.value}")
             }
         }
-        response.bodyAsText()
     }
 
     suspend fun report(url: String, xmlBody: String): Result<String> = runCatching {

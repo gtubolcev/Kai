@@ -72,6 +72,10 @@ import kai.composeapp.generated.resources.tool_caldav_list_events_description
 import kai.composeapp.generated.resources.tool_caldav_list_events_name
 import kai.composeapp.generated.resources.tool_caldav_list_tasks_description
 import kai.composeapp.generated.resources.tool_caldav_list_tasks_name
+import kai.composeapp.generated.resources.tool_caldav_update_event_description
+import kai.composeapp.generated.resources.tool_caldav_update_event_name
+import kai.composeapp.generated.resources.tool_caldav_update_task_description
+import kai.composeapp.generated.resources.tool_caldav_update_task_name
 import kai.composeapp.generated.resources.tool_create_calendar_event_description
 import kai.composeapp.generated.resources.tool_create_calendar_event_name
 import kai.composeapp.generated.resources.tool_open_file_description
@@ -190,6 +194,14 @@ actual fun createLegacySettings(): Settings? {
     return SharedPreferencesSettings(prefs)
 }
 
+private fun nowIcalUtc(): String {
+    val now = java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC)
+    return "%04d%02d%02dT%02d%02d%02dZ".format(
+        now.year, now.monthValue, now.dayOfMonth,
+        now.hour, now.minute, now.second,
+    )
+}
+
 // Tool definitions for Android platform
 actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
     addAll(CommonTools.commonToolDefinitions)
@@ -281,6 +293,24 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
             description = "Delete a task from the CalDAV server by UID",
             nameRes = Res.string.tool_caldav_delete_task_name,
             descriptionRes = Res.string.tool_caldav_delete_task_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "caldav_update_event",
+            name = "Update CalDAV Event",
+            description = "Update an existing calendar event on the CalDAV server",
+            nameRes = Res.string.tool_caldav_update_event_name,
+            descriptionRes = Res.string.tool_caldav_update_event_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "caldav_update_task",
+            name = "Update CalDAV Task",
+            description = "Update an existing task on the CalDAV server",
+            nameRes = Res.string.tool_caldav_update_task_name,
+            descriptionRes = Res.string.tool_caldav_update_task_description,
         ),
     )
     // SMS tools are intentionally absent here: availability is driven by the Agent-tab
@@ -746,6 +776,103 @@ actual fun getAvailableTools(): List<Tool> {
                             mapOf("success" to true, "message" to "Task '$uid' deleted")
                         } else {
                             mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to delete task"))
+                        }
+                    }
+                })
+            }
+
+            if (appSettings.isToolEnabled("caldav_update_event")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_update_event",
+                        "Update an existing calendar event on the CalDAV server. Fetches the current event, applies the specified changes, and writes it back safely using ETag.",
+                        mapOf(
+                            "uid" to ParameterSchema("string", "UID of the event to update", true),
+                            "summary" to ParameterSchema("string", "New event title/summary", false),
+                            "start_datetime" to ParameterSchema("string", "New start date-time in iCalendar format, e.g. '20240315T143000Z'", false),
+                            "end_datetime" to ParameterSchema("string", "New end date-time in iCalendar format", false),
+                            "description" to ParameterSchema("string", "New event description", false),
+                            "location" to ParameterSchema("string", "New event location", false),
+                        ),
+                    )
+
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val uid = args["uid"] as? String
+                            ?: return mapOf("success" to false, "error" to "uid is required")
+                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val client = CaldavClient(caldavUsername, caldavPassword)
+
+                        val getResult = client.getWithEtag(url)
+                        if (getResult.isFailure) return mapOf("success" to false, "error" to (getResult.exceptionOrNull()?.message ?: "Failed to fetch event"))
+                        val (icsBody, etag) = getResult.getOrThrow()
+
+                        val stamp = nowIcalUtc()
+                        val updates = buildMap<String, String> {
+                            (args["summary"] as? String)?.let { put("SUMMARY", it) }
+                            (args["start_datetime"] as? String)?.let { put("DTSTART", it) }
+                            (args["end_datetime"] as? String)?.let { put("DTEND", it) }
+                            (args["description"] as? String)?.let { put("DESCRIPTION", it) }
+                            (args["location"] as? String)?.let { put("LOCATION", it) }
+                            put("DTSTAMP", stamp)
+                            put("LAST-MODIFIED", stamp)
+                        }
+
+                        val updatedIcs = CaldavParser.updateProperties(icsBody, updates)
+                        val putResult = client.put(url, updatedIcs, etag)
+                        return if (putResult.isSuccess) {
+                            mapOf("success" to true, "uid" to uid, "message" to "Event updated")
+                        } else {
+                            mapOf("success" to false, "error" to (putResult.exceptionOrNull()?.message ?: "Failed to update event"))
+                        }
+                    }
+                })
+            }
+
+            if (appSettings.isToolEnabled("caldav_update_task")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_update_task",
+                        "Update an existing task on the CalDAV server. Fetches the current task, applies the specified changes, and writes it back safely using ETag.",
+                        mapOf(
+                            "uid" to ParameterSchema("string", "UID of the task to update", true),
+                            "summary" to ParameterSchema("string", "New task title/summary", false),
+                            "due_date" to ParameterSchema("string", "New due date in iCalendar format, e.g. '20240315' or '20240315T120000Z'", false),
+                            "priority" to ParameterSchema("integer", "New priority 1 (highest) to 9 (lowest)", false),
+                            "description" to ParameterSchema("string", "New task description", false),
+                            "status" to ParameterSchema("string", "New status: NEEDS-ACTION, IN-PROCESS, COMPLETED, or CANCELLED", false),
+                        ),
+                    )
+
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val uid = args["uid"] as? String
+                            ?: return mapOf("success" to false, "error" to "uid is required")
+                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val client = CaldavClient(caldavUsername, caldavPassword)
+
+                        val getResult = client.getWithEtag(url)
+                        if (getResult.isFailure) return mapOf("success" to false, "error" to (getResult.exceptionOrNull()?.message ?: "Failed to fetch task"))
+                        val (icsBody, etag) = getResult.getOrThrow()
+
+                        val stamp = nowIcalUtc()
+                        val updates = buildMap<String, String> {
+                            (args["summary"] as? String)?.let { put("SUMMARY", it) }
+                            (args["due_date"] as? String)?.let { put("DUE", it) }
+                            (args["priority"] as? Number)?.toInt()?.let { put("PRIORITY", it.toString()) }
+                            (args["description"] as? String)?.let { put("DESCRIPTION", it) }
+                            (args["status"] as? String)?.let { newStatus ->
+                                put("STATUS", newStatus)
+                                if (newStatus == "COMPLETED") put("COMPLETED", stamp)
+                            }
+                            put("DTSTAMP", stamp)
+                            put("LAST-MODIFIED", stamp)
+                        }
+
+                        val updatedIcs = CaldavParser.updateProperties(icsBody, updates)
+                        val putResult = client.put(url, updatedIcs, etag)
+                        return if (putResult.isSuccess) {
+                            mapOf("success" to true, "uid" to uid, "message" to "Task updated")
+                        } else {
+                            mapOf("success" to false, "error" to (putResult.exceptionOrNull()?.message ?: "Failed to update task"))
                         }
                     }
                 })

@@ -232,20 +232,14 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             println("LiteRT: tools=${tools.map { it.name }}")
             // automaticToolCalling=true: the library injects <tools> schemas via its native
             // chat-template processor (special tokens positioned correctly) AND runs the
-            // tool-calling loop inside sendMessage(). Manual injection of Qwen3 special
-            // tokens causes SIGSEGV; automaticToolCalling=false skips schema injection
-            // entirely, so the model never sees the tool list.
-            //
-            // For Qwen3 with tools: append a concise-thinking hint to the system prompt so
-            // the model reasons briefly before calling a tool rather than generating a
-            // multi-minute <think> block. /no_think is too aggressive — it prevents the
-            // model from reasoning about which tool to use, causing refusal responses.
-            val isQwen3 = currentModelId?.contains("qwen3", ignoreCase = true) == true
+            // tool-calling loop inside sendMessage(). Manual injection of special tokens
+            // causes SIGSEGV; automaticToolCalling=false skips schema injection entirely,
+            // so the model never sees the tool list.
             val toolNames = tools.map { it.name }.toSet()
             val hasCaldavTools = toolNames.any { it.startsWith("caldav") }
             val effectiveSystemPrompt = buildString {
-                // Tool-use rules prepended BEFORE the main system prompt so a small model
-                // attends to them even when the prompt is long.
+                // CalDAV tool-use rules prepended BEFORE the main system prompt so a small
+                // model attends to them even when the prompt is long.
                 if (hasCaldavTools) {
                     append("TOOL USE RULES: Always call a tool instead of saying it is unavailable.")
                     append(" To create a task: call caldav_create_task({\"summary\":\"...\"}).")
@@ -253,11 +247,6 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     append(" To list events: call caldav_list_events.")
                     append(" To search the web: call web_search.")
                     append(" Never say a caldav tool is unavailable — they are always available.\n\n")
-                } else if (isQwen3 && tools.isNotEmpty()) {
-                    // The model's <think> block shows it decides "I can't browse the internet"
-                    // even when web_search is available. This explicit rule directly overrides
-                    // that refusal pattern: web_search IS the internet access.
-                    append("CRITICAL RULE: web_search IS your internet access. When asked to find information online, search for news, or look something up, call web_search immediately. Do NOT say \"I can't browse the internet\" — you can, through the web_search tool in your tools list.\n\n")
                 }
                 append(sanitizedSystemPrompt ?: "")
             }.ifBlank { null }

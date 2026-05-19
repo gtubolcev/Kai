@@ -354,7 +354,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
         private const val MIN_MEMORY_HEADROOM_BYTES = 512L * 1024 * 1024 // 512 MB
         private const val DOWNLOAD_SPACE_BUFFER_BYTES = 500L * 1024 * 1024 // 500 MB
         private const val GPU_DRAIN_DELAY_MS = 750L
-        private val THINK_BLOCK_REGEX = Regex("<think>.*?</think>", RegexOption.DOT_MATCHES_ALL)
+        private val THINK_BLOCK_REGEX = Regex("<think>(.*?)</think>", RegexOption.DOT_MATCHES_ALL)
         private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
     }
 

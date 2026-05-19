@@ -218,21 +218,19 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             }
 
             println("LiteRT: tools=${tools.map { it.name }}")
-            // Use automaticToolCalling=true so the library injects <tools> schemas via its
-            // own native chat-template processor. Manual string injection of Qwen3 special
-            // tokens (<tools>, <tool_call>) through the text API causes the native decoder
-            // to produce garbage or SIGSEGV — the template processor handles positioning
-            // of these tokens correctly; our string API does not.
-            // With automaticToolCalling=true, tool execution happens inside sendMessage():
-            // the library calls our LocalToolOpenApiAdapter.execute() for each tool call
-            // and returns the final response after all iterations complete.
+            // automaticToolCalling=false: the library injects <tools> schemas via its
+            // native chat-template processor (special tokens positioned correctly), but
+            // does NOT call OpenApiTool.execute() internally. Our manual loop below
+            // handles execution after sendMessage() returns, so network tools like
+            // web_search can take as long as they need without hitting the engine's
+            // internal task-pool deadline (DEADLINE_EXCEEDED).
             val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
             val config = ConversationConfig(
                 systemInstruction = sanitizedSystemPrompt?.let { Contents.of(it) },
                 initialMessages = initialMessages,
                 tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
-                automaticToolCalling = true,
+                automaticToolCalling = false,
             )
             val prev = conversation
             conversation = null

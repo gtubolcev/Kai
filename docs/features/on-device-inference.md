@@ -1,6 +1,6 @@
 # On-Device Inference (LiteRT)
 
-**Last verified:** 2026-05-19
+**Last verified:** 2026-05-19 (Qwen3 manual tool loop added)
 
 Kai can run AI models directly on the user's device using Google's LiteRT LM SDK. This enables fully offline, private inference with no API key, no internet connection, and no cost. Available on Android and Desktop (macOS, Linux, Windows).
 
@@ -14,7 +14,7 @@ Models are downloaded from HuggingFace's litert-community and stored locally on 
 |-------|------|---------------------|-----------------|-------------|--------------|-------|
 | Gemma 4 E2B IT | 2.58 GB | 676 MB | 4K tokens | 32K tokens | ✅ reliable | No |
 | Gemma 4 E4B IT | 3.65 GB | 710 MB | 4K tokens | 32K tokens | ✅ reliable | No |
-| Qwen3 0.6B | 586 MB | 300 MB | 4K tokens | 32K tokens | ⚠️ chat-only in practice | No |
+| Qwen3 0.6B | 586 MB | 300 MB | 4K tokens | 32K tokens | ⚠️ manual loop (experimental) | No |
 | FunctionGemma 270M | 289 MB | 300 MB | 1K tokens | 1K tokens | ✅ purpose-built | Yes (HF token) |
 
 Models are `.litertlm` files from the [litert-community](https://huggingface.co/litert-community) organization on HuggingFace.
@@ -25,13 +25,13 @@ FunctionGemma 270M is a gated HuggingFace model — it requires accepting the mo
 
 ## Tool support
 
-The application uses **litert-lm's native function calling** (`automaticToolCalling = true` on `ConversationConfig`): each exposed Kai tool is wrapped in an `OpenApiTool` adapter, registered on the conversation, and the engine drives the tool loop internally. The model uses its trained tool format and `chat()` returns the final assistant text after all tool round-trips complete. Tools are available **at any context size** — there's no threshold gating.
+**Gemma 4 E2B/E4B** uses litert-lm's native function calling (`automaticToolCalling = true` on `ConversationConfig`): each exposed Kai tool is wrapped in an `OpenApiTool` adapter, registered on the conversation, and the engine drives the tool loop internally via its ANTLR-based parser. `chat()` returns the final assistant text after all tool round-trips complete.
 
-Only a small **allowlist** of tools is exposed on-device, because small Gemma models (2-4B params) struggle to emit valid function-call syntax for tools with many parameters or complex value types, and litert-lm's strict ANTLR parser crashes the call when the syntax is malformed.
+**Qwen3 0.6B** uses a manual tool loop: `automaticToolCalling = false` (the ANTLR parser only understands Gemma's template format). Tool schemas are injected into the system prompt in Qwen3's native `<tools>` format, and `<tool_call>` tags in the model's output are parsed manually. Tool results are returned as user messages with `<tool_response>` tags, matching Qwen3's expected conversation format. The same `parseFirstToolCall` logic handles both paths.
 
-The allowlist (in `RemoteDataRepository.LOCAL_TOOL_ALLOWLIST`) currently exposes: `get_local_time`, `get_location_from_ip`, `web_search`, `open_url`, `memory_store`, `memory_forget`, `memory_reinforce`, `execute_shell_command` (when enabled in Settings), and the full set of CalDAV tools: `caldav_create_event`, `caldav_create_task`, `caldav_list_events`, `caldav_delete_event`, `caldav_list_tasks`, `caldav_delete_task`, `caldav_update_event`, `caldav_update_task`. Email tools, task scheduling (`schedule_task` / `list_tasks` / `cancel_task`), MCP server tools, structured `memory_learn`, heartbeat-config tools, and `promote_learning` are excluded — they require a remote model.
+Tools are available **at any context size** — there's no threshold gating.
 
-**Qwen3 0.6B caveat:** the model is wired to the same allowlist but at 0.6 B params it rarely emits valid function-call syntax — it tends to hallucinate answers (e.g. a fictional time) instead of invoking `get_local_time`. Treat Qwen3 as a chat-only model in practice; pick Gemma 4 E2B/E4B for anything that relies on tools.
+Only a small **allowlist** of tools is exposed on-device, because small models (0.6–4B params) can struggle with tools that have many parameters or complex value types. The allowlist (in `RemoteDataRepository.LOCAL_TOOL_ALLOWLIST`) currently exposes: `get_local_time`, `get_location_from_ip`, `web_search`, `open_url`, `memory_store`, `memory_forget`, `memory_reinforce`, `execute_shell_command` (when enabled in Settings), and the full set of CalDAV tools: `caldav_create_event`, `caldav_create_task`, `caldav_list_events`, `caldav_delete_event`, `caldav_list_tasks`, `caldav_delete_task`, `caldav_update_event`, `caldav_update_task`. Email tools, task scheduling (`schedule_task` / `list_tasks` / `cancel_task`), MCP server tools, structured `memory_learn`, heartbeat-config tools, and `promote_learning` are excluded — they require a remote model.
 
 The system prompt for on-device runs is built directly from the `CHAT_LOCAL` variant of `buildChatSystemPrompt` — it contains only the sections a small Gemma can handle (soul + basic memory guidance + runtime Context block). Memory categories, scheduled tasks, Structured Learning guidance, and kai-ui sections are never composed in.
 
@@ -39,7 +39,7 @@ Interactive UI mode is **not supported** on-device: the kai-ui component schema 
 
 See [system-prompts.md](system-prompts.md) and `ChatSystemPromptBuilderTest` for the full contract.
 
-If the engine throws (e.g. the model does emit malformed tool-call syntax that the ANTLR parser rejects), the application catches the `RuntimeException`, logs it, and retries the call **once** with no tools — the user gets a plain-chat answer instead of a hard error.
+If the engine throws (e.g. the model emits malformed tool-call syntax that the ANTLR parser rejects), the application catches the `RuntimeException`, logs it, and retries the call **once** with no tools — the user gets a plain-chat answer instead of a hard error. Qwen3's manual loop does not use the ANTLR parser, so parse failures there produce a `null` tool call and exit the loop cleanly.
 
 ## Other limitations
 

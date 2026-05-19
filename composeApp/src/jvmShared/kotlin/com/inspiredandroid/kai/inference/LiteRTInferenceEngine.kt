@@ -230,16 +230,15 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             }
 
             println("LiteRT: tools=${tools.map { it.name }}")
-            // automaticToolCalling=true: the library injects <tools> schemas via its native
-            // chat-template processor (special tokens positioned correctly) AND runs the
-            // tool-calling loop inside sendMessage(). Manual injection of special tokens
-            // causes SIGSEGV; automaticToolCalling=false skips schema injection entirely,
-            // so the model never sees the tool list.
+            // Qwen3 uses its own <tool_call> XML format, incompatible with the ANTLR-based
+            // parser that automaticToolCalling=true activates (Gemma chat-template only).
+            // For Qwen3 we inject schemas manually in the system prompt and drive the tool
+            // loop ourselves. automaticToolCalling=false skips native schema injection but
+            // leaves sendMessage() returning raw model output we can parse.
+            val isQwen3 = currentModelId?.startsWith("qwen") == true
             val toolNames = tools.map { it.name }.toSet()
             val hasCaldavTools = toolNames.any { it.startsWith("caldav") }
             val effectiveSystemPrompt = buildString {
-                // CalDAV tool-use rules prepended BEFORE the main system prompt so a small
-                // model attends to them even when the prompt is long.
                 if (hasCaldavTools) {
                     append("TOOL USE RULES: Always call a tool instead of saying it is unavailable.")
                     append(" To create a task: call caldav_create_task({\"summary\":\"...\"}).")
@@ -248,15 +247,24 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     append(" To search the web: call web_search.")
                     append(" Never say a caldav tool is unavailable — they are always available.\n\n")
                 }
+                if (isQwen3 && tools.isNotEmpty()) {
+                    val toolsJson = "[" + tools.joinToString(",") {
+                        """{"type":"function","function":${it.descriptionJsonString}}"""
+                    } + "]"
+                    append("# Tools\n\nYou may call one or more functions to assist with the user query.\n\n")
+                    append("<tools>\n$toolsJson\n</tools>\n\n")
+                    append("For each function call, output a JSON object within <tool_call></tool_call> XML tags:\n")
+                    append("<tool_call>\n{\"name\": \"function_name\", \"arguments\": {}}\n</tool_call>\n\n")
+                }
                 append(sanitizedSystemPrompt ?: "")
             }.ifBlank { null }
-            val toolProviders = tools.map { tool(LocalToolOpenApiAdapter(it)) }
+            val toolProviders = if (!isQwen3) tools.map { tool(LocalToolOpenApiAdapter(it)) } else emptyList()
             val config = ConversationConfig(
                 systemInstruction = effectiveSystemPrompt?.let { Contents.of(it) },
                 initialMessages = initialMessages,
                 tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
-                automaticToolCalling = true,
+                automaticToolCalling = !isQwen3,
             )
             val prev = conversation
             conversation = null
@@ -297,7 +305,11 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     """{"error":"unknown tool '${toolCall.name}'"}"""
                 }
 
-                nextMessage = Message.tool(Contents.of(Content.ToolResponse(toolCall.name, toolResult)))
+                nextMessage = if (isQwen3) {
+                    Message.user("<tool_response>\n$toolResult\n</tool_response>")
+                } else {
+                    Message.tool(Contents.of(Content.ToolResponse(toolCall.name, toolResult)))
+                }
             }
 
             LocalChatResult(

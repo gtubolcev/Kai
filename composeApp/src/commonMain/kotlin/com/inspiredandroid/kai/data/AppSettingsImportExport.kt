@@ -161,6 +161,15 @@ fun AppSettings.exportToJson(
         }
     }
 
+    if (ImportSection.CALDAV in sections) {
+        val url = getCaldavUrl()
+        val username = getCaldavUsername()
+        val password = getCaldavPassword()
+        if (url.isNotBlank()) map["caldav_url"] = JsonPrimitive(url)
+        if (username.isNotBlank()) map["caldav_username"] = JsonPrimitive(username)
+        if (password.isNotBlank()) map["caldav_password"] = JsonPrimitive(password)
+    }
+
     return JsonObject(map)
 }
 
@@ -357,6 +366,20 @@ fun AppSettings.importFromJson(
         }
     } else if (replace) {
         setConversationsJson("")
+    }
+
+    if (ImportSection.CALDAV in sections) {
+        try {
+            setCaldavUrl(json["caldav_url"]?.jsonPrimitive?.content ?: "")
+            setCaldavUsername(json["caldav_username"]?.jsonPrimitive?.content ?: "")
+            setCaldavPassword(json["caldav_password"]?.jsonPrimitive?.content ?: "")
+        } catch (_: Exception) {
+            errors++
+        }
+    } else if (replace) {
+        setCaldavUrl("")
+        setCaldavUsername("")
+        setCaldavPassword("")
     }
 
     return errors

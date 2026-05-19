@@ -28,6 +28,7 @@ enum class ImportSection {
     TOOLS,
     MCP,
     CONVERSATIONS,
+    CALDAV,
 }
 
 enum class ThemeMode {
@@ -108,6 +109,10 @@ fun detectExportableSections(json: JsonObject): Map<ImportSection, String?> {
         sections[ImportSection.CONVERSATIONS] = "${conversations.size}"
     }
 
+    if (json["caldav_url"] != null) {
+        sections[ImportSection.CALDAV] = null
+    }
+
     return sections
 }
 
@@ -162,6 +167,9 @@ fun detectImportSections(json: JsonObject): Map<ImportSection, String?> {
             null
         }
         sections[ImportSection.CONVERSATIONS] = count?.let { "$it" }
+    }
+    if (json["caldav_url"] != null || json["caldav_username"] != null) {
+        sections[ImportSection.CALDAV] = null
     }
     return sections
 }

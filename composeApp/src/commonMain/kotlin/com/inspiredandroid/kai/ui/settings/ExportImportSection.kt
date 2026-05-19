@@ -384,4 +384,5 @@ private fun sectionDisplayName(section: ImportSection): String = when (section) 
     ImportSection.TOOLS -> stringResource(Res.string.settings_import_section_tools)
     ImportSection.MCP -> stringResource(Res.string.settings_import_section_mcp)
     ImportSection.CONVERSATIONS -> stringResource(Res.string.settings_import_section_conversations)
+    ImportSection.CALDAV -> stringResource(Res.string.settings_caldav)
 }

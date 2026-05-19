@@ -231,7 +231,10 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             val isQwen3 = currentModelId?.contains("qwen3", ignoreCase = true) == true
             val effectiveSystemPrompt = if (isQwen3 && tools.isNotEmpty()) {
                 val base = sanitizedSystemPrompt ?: ""
-                "$base\n\nThink at most 2-3 sentences before calling a tool. Use available tools immediately — never refuse a capability that a tool can provide."
+                // The model's <think> block shows it decides "I can't browse the internet"
+                // even when web_search is available. This explicit rule directly overrides
+                // that refusal pattern: web_search IS the internet access.
+                "$base\n\nCRITICAL RULE: web_search IS your internet access. When asked to find information online, search for news, or look something up, call web_search immediately. Do NOT say \"I can't browse the internet\" — you can, through the web_search tool in your tools list."
             } else {
                 sanitizedSystemPrompt
             }

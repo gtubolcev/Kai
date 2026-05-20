@@ -320,8 +320,15 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     """{"error":"unknown tool '${toolCall.name}'"}"""
                 }
 
+                // Qwen3 0.6B has a 4K context window; long tool results (e.g. search JSON)
+                // consume most of it and leave the model no room to produce a coherent reply.
+                val feedbackResult = if (isQwen3 && toolResult.length > 800) {
+                    toolResult.take(800) + "…"
+                } else {
+                    toolResult
+                }
                 nextMessage = if (isQwen3) {
-                    Message.user("<tool_response>\n$toolResult\n</tool_response>")
+                    Message.user("<tool_response>\n$feedbackResult\n</tool_response>")
                 } else {
                     Message.tool(Contents.of(Content.ToolResponse(toolCall.name, toolResult)))
                 }

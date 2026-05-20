@@ -307,7 +307,10 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 // inside <think> and then outputs plain text in the actual response.
                 val toolCall = if (tools.isNotEmpty()) parseFirstToolCall(raw) else null
                 if (toolCall == null) {
-                    return@withContext LocalChatResult(content = text, reasoningContent = firstReasoning)
+                    val finalText = text.ifBlank {
+                        if (iteration > 0) "…" else text
+                    }
+                    return@withContext LocalChatResult(content = finalText, reasoningContent = firstReasoning)
                 }
 
                 val localTool = tools.find { it.name == toolCall.name }
@@ -328,9 +331,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     toolResult
                 }
                 nextMessage = if (isQwen3) {
-                    // "Answer now." discourages the model from immediately emitting another
-                    // <tool_call> in the next think block and spinning the loop to the limit.
-                    Message.user("<tool_response>\n$feedbackResult\n</tool_response>\nAnswer now.")
+                    // Explicit "do NOT use tool_call" is needed because Qwen3 0.6B tends to
+                    // emit another <tool_call> block on the follow-up turn instead of prose.
+                    Message.user("<tool_response>\n$feedbackResult\n</tool_response>\nWrite a brief answer in plain text. Do NOT use <tool_call> tags.")
                 } else {
                     Message.tool(Contents.of(Content.ToolResponse(toolCall.name, toolResult)))
                 }

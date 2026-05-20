@@ -354,10 +354,11 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     """{"error":"unknown tool '${toolCall.name}'"}"""
                 }
 
-                // Qwen3 0.6B has a 4K context window; long tool results (e.g. search JSON)
-                // consume most of it and leave the model no room to produce a coherent reply.
-                val feedbackResult = if (isQwen3 && toolResult.length > 800) {
-                    toolResult.take(800) + "…"
+                // Qwen3 0.6B struggles to extract field values from raw JSON; pre-format
+                // list results into plain text so the model just needs to present them.
+                val feedbackResult = if (isQwen3) {
+                    val formatted = formatToolResultForQwen3(toolCall.name, toolResult)
+                    if (formatted.length > 800) formatted.take(800) + "…" else formatted
                 } else {
                     toolResult
                 }
@@ -475,6 +476,51 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             setOf(RegexOption.MULTILINE, RegexOption.IGNORE_CASE),
         )
         private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
+
+        private fun formatToolResultForQwen3(toolName: String, result: String): String {
+            val obj = try { lenientJson.parseToJsonElement(result).jsonObject } catch (_: Throwable) { return result }
+            val success = obj["success"]?.jsonPrimitive?.contentOrNull
+            if (success == "false") return obj["error"]?.jsonPrimitive?.contentOrNull ?: result
+
+            return when {
+                toolName == "caldav_list_tasks" -> {
+                    val tasks = obj["tasks"]?.jsonArray ?: return result
+                    if (tasks.isEmpty()) return "No tasks."
+                    buildString {
+                        append("${tasks.size} task(s):\n")
+                        tasks.forEachIndexed { i, t ->
+                            val task = t.jsonObject
+                            val summary = task["summary"]?.jsonPrimitive?.contentOrNull ?: "?"
+                            val status = task["status"]?.jsonPrimitive?.contentOrNull ?: ""
+                            val due = task["due"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotEmpty() }
+                            append("${i + 1}. $summary")
+                            if (status.equals("COMPLETED", ignoreCase = true)) append(" [done]")
+                            if (due != null) append(" (due $due)")
+                            append("\n")
+                        }
+                    }.trim()
+                }
+                toolName == "caldav_list_events" -> {
+                    val events = obj["events"]?.jsonArray ?: return result
+                    if (events.isEmpty()) return "No events."
+                    buildString {
+                        append("${events.size} event(s):\n")
+                        events.forEachIndexed { i, e ->
+                            val event = e.jsonObject
+                            val summary = event["summary"]?.jsonPrimitive?.contentOrNull ?: "?"
+                            val start = event["dtstart"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotEmpty() }
+                            val end = event["dtend"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotEmpty() }
+                            append("${i + 1}. $summary")
+                            if (start != null) append(" ($start")
+                            if (end != null) append(" – $end")
+                            if (start != null) append(")")
+                            append("\n")
+                        }
+                    }.trim()
+                }
+                else -> result
+            }
+        }
     }
 
     override fun getDownloadedModels(): List<DownloadedModel> {

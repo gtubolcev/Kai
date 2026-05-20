@@ -38,7 +38,7 @@ jobs:
           fi
 
       - name: Build Debug APK
-        run: ./gradlew clean :androidApp:assembleFossDebug --stacktrace --no-build-cache
+        run: ./gradlew :androidApp:assembleFossDebug --stacktrace --no-build-cache --rerun-tasks
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

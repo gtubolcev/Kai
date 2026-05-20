@@ -342,6 +342,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     firstReasoning = THINK_BLOCK_REGEX.find(raw)?.groupValues?.get(1)?.trim()?.ifBlank { null }
                 }
                 val text = stripToolCallBlocks(stripThinkBlocks(raw))
+                println("LiteRT: stripped text length=${text.length} iter=$iteration: ${text.take(120)}")
                 // Search raw output (before think stripping) so tool calls emitted inside
                 // the <think> block are still detected — Qwen3 often places <tool_call>
                 // inside <think> and then outputs plain text in the actual response.
@@ -373,7 +374,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 nextMessage = if (isQwen3) {
                     // Explicit "do NOT use tool_call" is needed because Qwen3 0.6B tends to
                     // emit another <tool_call> block on the follow-up turn instead of prose.
-                    Message.user("<tool_response>\n$feedbackResult\n</tool_response>\nWrite a brief answer in plain text. Do NOT use <tool_call> tags.")
+                    // "brief" was intentionally removed — it causes the model to output almost
+                    // nothing instead of presenting the actual results to the user.
+                    Message.user("<tool_response>\n$feedbackResult\n</tool_response>\nUsing the above results, respond to the user in plain text. Do not use <tool_call> tags.")
                 } else {
                     Message.tool(Contents.of(Content.ToolResponse(toolCall.name, toolResult)))
                 }

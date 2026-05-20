@@ -161,21 +161,33 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 val requestedTokens = if (contextTokens > 0) contextTokens else null
                 println("LiteRT: initializing model=${model.id} maxNumTokens=$requestedTokens")
 
-                val newEngine = try {
-                    try {
-                        initWithBackend(Backend.GPU(), requestedTokens)
-                    } catch (e: Exception) {
-                        initWithBackend(Backend.CPU(), requestedTokens)
+                fun tryBackends(maxTokens: Int?): Engine {
+                    val nativeLibDir = getNativeLibraryDir()
+                    val backends = if (nativeLibDir.isNotEmpty()) {
+                        listOf(Backend.NPU(nativeLibDir), Backend.GPU(), Backend.CPU())
+                    } else {
+                        listOf(Backend.GPU(), Backend.CPU())
                     }
+                    var lastException: Exception? = null
+                    for (backend in backends) {
+                        try {
+                            println("LiteRT: trying backend=${backend::class.simpleName}")
+                            return initWithBackend(backend, maxTokens)
+                        } catch (e: Exception) {
+                            println("LiteRT: backend=${backend::class.simpleName} failed: ${e.message}")
+                            lastException = e
+                        }
+                    }
+                    throw lastException!!
+                }
+
+                val newEngine = try {
+                    tryBackends(requestedTokens)
                 } catch (e: Exception) {
                     // Context size not supported — retry with model default
                     println("LiteRT: init failed with maxNumTokens=$requestedTokens, falling back to default: ${e.message}")
                     if (requestedTokens != null) {
-                        try {
-                            initWithBackend(Backend.GPU(), null)
-                        } catch (e2: Exception) {
-                            initWithBackend(Backend.CPU(), null)
-                        }
+                        tryBackends(null)
                     } else {
                         throw e
                     }

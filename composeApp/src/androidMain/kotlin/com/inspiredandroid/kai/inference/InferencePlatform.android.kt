@@ -13,6 +13,8 @@ private val context: Context by inject(Context::class.java)
 actual fun getModelStorageDirectory(): String =
     (context.getExternalFilesDir(null) ?: context.filesDir).absolutePath + "/litert_models"
 
+actual fun getNativeLibraryDir(): String = context.applicationInfo.nativeLibraryDir
+
 actual fun getModelCacheDirectory(): String = context.cacheDir.absolutePath
 
 private fun getMemoryInfo(): ActivityManager.MemoryInfo {

@@ -6,6 +6,8 @@ import java.lang.management.ManagementFactory
 
 actual fun getModelStorageDirectory(): String = getAppFilesDirectory() + "/litert_models"
 
+actual fun getNativeLibraryDir(): String = ""
+
 actual fun getModelCacheDirectory(): String = System.getProperty("java.io.tmpdir") ?: getAppFilesDirectory()
 
 actual fun getAvailableMemoryBytes(): Long = Long.MAX_VALUE // Desktop OSes manage memory via swap and cache eviction; skip the check

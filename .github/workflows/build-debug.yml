@@ -38,23 +38,16 @@ jobs:
           fi
 
       - name: Generate Compose resources
-        run: ./gradlew :composeApp:generateResourceAccessorsForCommonMain --no-build-cache --rerun-tasks
-
-      - name: Check generated file before build
         run: |
-          echo "=== String0 contains litert_error_auth ==="
-          grep -c "litert_error_auth" composeApp/build/generated/compose/resourceGenerator/kotlin/commonMainResourceAccessors/kai/composeapp/generated/resources/String0.commonMain.kt || echo "MISSING"
-          echo "=== All generated String*.kt files ==="
-          ls -la composeApp/build/generated/compose/resourceGenerator/kotlin/commonMainResourceAccessors/kai/composeapp/generated/resources/String*.kt
+          ./gradlew \
+            :composeApp:generateResourceAccessorsForCommonMain \
+            :composeApp:generateActualResourceCollectorsForAndroidMain \
+            :composeApp:generateExpectResourceCollectorsForCommonMain \
+            :composeApp:generateComposeResClass \
+            --no-build-cache --rerun-tasks
 
       - name: Build Debug APK
         run: ./gradlew :androidApp:assembleFossDebug --stacktrace --no-build-cache
-
-      - name: Check generated file after build (if failed)
-        if: failure()
-        run: |
-          echo "=== String0 contains litert_error_auth after build ==="
-          grep -c "litert_error_auth" composeApp/build/generated/compose/resourceGenerator/kotlin/commonMainResourceAccessors/kai/composeapp/generated/resources/String0.commonMain.kt || echo "MISSING - FILE WAS OVERWRITTEN"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

@@ -580,6 +580,12 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 connection.connect()
 
                 val responseCode = connection.responseCode
+                println("LiteRT: download HTTP $responseCode for ${model.displayName} (hasToken=${model.requiresHfToken && !hfToken.isNullOrBlank()})")
+                if (responseCode == 401 || responseCode == 403) {
+                    connection.disconnect()
+                    _downloadError.value = DownloadError.AUTH_ERROR
+                    return@launch
+                }
                 if (responseCode !in 200..299) {
                     connection.disconnect()
                     throw IOException("Download failed: HTTP $responseCode")

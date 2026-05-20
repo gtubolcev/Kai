@@ -87,6 +87,7 @@ enum class DownloadError {
     NOT_ENOUGH_DISK_SPACE,
     NETWORK_ERROR,
     DOWNLOAD_INCOMPLETE,
+    AUTH_ERROR,
 }
 
 interface LocalInferenceEngine {

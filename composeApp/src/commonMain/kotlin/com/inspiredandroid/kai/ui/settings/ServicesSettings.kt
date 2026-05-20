@@ -915,6 +915,7 @@ private fun LiteRTSettings(
                     DownloadError.NOT_ENOUGH_DISK_SPACE -> Res.string.litert_error_not_enough_disk_space
                     DownloadError.NETWORK_ERROR -> Res.string.litert_error_network
                     DownloadError.DOWNLOAD_INCOMPLETE -> Res.string.litert_error_download_incomplete
+                    DownloadError.AUTH_ERROR -> Res.string.litert_error_auth
                 },
             ),
             style = MaterialTheme.typography.bodySmall,

@@ -392,6 +392,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
         var result = TOOL_CALL_BLOCK_REGEX.replace(s, "")
         val idx = result.indexOf("<tool_call>")
         if (idx >= 0) result = result.substring(0, idx)
+        // Strip chat-template sentinel tokens that Qwen3 occasionally emits as literal text
+        // (<|endoftext|>, <|im_end|>, role labels like "Human", "Assistant")
+        result = CHAT_TEMPLATE_TOKEN_REGEX.replace(result, "")
         return result.trim()
     }
 
@@ -431,6 +434,10 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
         private const val GPU_DRAIN_DELAY_MS = 750L
         private val THINK_BLOCK_REGEX = Regex("<think>(.*?)</think>", RegexOption.DOT_MATCHES_ALL)
         private val TOOL_CALL_BLOCK_REGEX = Regex("<tool_call>(.*?)</tool_call>", RegexOption.DOT_MATCHES_ALL)
+        private val CHAT_TEMPLATE_TOKEN_REGEX = Regex(
+            "<\\|endoftext\\|>|<\\|im_end\\|>|<\\|im_start\\|>|\\bHuman\\s*$|\\bAssistant\\s*$",
+            setOf(RegexOption.MULTILINE, RegexOption.IGNORE_CASE),
+        )
         private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
     }
 

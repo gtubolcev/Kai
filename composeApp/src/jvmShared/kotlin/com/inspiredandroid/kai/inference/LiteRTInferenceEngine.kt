@@ -302,7 +302,10 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     firstReasoning = THINK_BLOCK_REGEX.find(raw)?.groupValues?.get(1)?.trim()?.ifBlank { null }
                 }
                 val text = stripThinkBlocks(raw)
-                val toolCall = if (tools.isNotEmpty()) parseFirstToolCall(text) else null
+                // Search raw output (before think stripping) so tool calls emitted inside
+                // the <think> block are still detected — Qwen3 often places <tool_call>
+                // inside <think> and then outputs plain text in the actual response.
+                val toolCall = if (tools.isNotEmpty()) parseFirstToolCall(raw) else null
                 if (toolCall == null) {
                     return@withContext LocalChatResult(content = text, reasoningContent = firstReasoning)
                 }

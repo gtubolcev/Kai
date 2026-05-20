@@ -328,7 +328,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     toolResult
                 }
                 nextMessage = if (isQwen3) {
-                    Message.user("<tool_response>\n$feedbackResult\n</tool_response>")
+                    // "Answer now." discourages the model from immediately emitting another
+                    // <tool_call> in the next think block and spinning the loop to the limit.
+                    Message.user("<tool_response>\n$feedbackResult\n</tool_response>\nAnswer now.")
                 } else {
                     Message.tool(Contents.of(Content.ToolResponse(toolCall.name, toolResult)))
                 }

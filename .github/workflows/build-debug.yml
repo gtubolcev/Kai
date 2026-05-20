@@ -37,16 +37,11 @@ jobs:
             echo "$DEBUG_KEYSTORE_B64" | base64 --decode > ~/.android/debug.keystore
           fi
 
-      - name: Generate resources (diagnostic)
-        run: |
-          ./gradlew :composeApp:generateResourceAccessorsForCommonMain --no-build-cache --rerun-tasks
-          echo "=== CVR ==="
-          grep "litert_error_auth" composeApp/build/generated/compose/resourceGenerator/preparedResources/commonMain/composeResources/values/strings.commonMain.cvr || echo "NOT IN CVR"
-          echo "=== Generated Kotlin ==="
-          grep -r "litert_error_auth" composeApp/build/generated/compose/resourceGenerator/kotlin/ || echo "NOT IN GENERATED KOTLIN"
+      - name: Generate Compose resources
+        run: ./gradlew :composeApp:generateResourceAccessorsForCommonMain --no-build-cache --rerun-tasks
 
       - name: Build Debug APK
-        run: ./gradlew :androidApp:assembleFossDebug --stacktrace --no-build-cache --rerun-tasks
+        run: ./gradlew :androidApp:assembleFossDebug --stacktrace --no-build-cache
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

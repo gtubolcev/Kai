@@ -11,10 +11,15 @@ import com.google.ai.edge.litertlm.OpenApiTool
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.tool
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -248,25 +253,48 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     append(" Never say a caldav tool is unavailable — they are always available.\n\n")
                 }
                 if (isQwen3 && tools.isNotEmpty()) {
-                    // Full OpenAPI JSON schemas are too token-heavy for a 4K context window.
-                    // Compact format: name(param1, param2): description — includes parameter
-                    // names so the model doesn't guess wrong keys (e.g. "summary" vs "query").
-                    append("You have access to these tools. To call one, respond with:\n")
-                    append("<tool_call>{\"name\":\"tool_name\",\"arguments\":{\"param\":\"value\"}}</tool_call>\n\n")
-                    append("Tools:\n")
+                    // Use the native Qwen3 <tools> format the model was trained on.
+                    // Full descriptions are dropped to stay within the 4K context budget;
+                    // only name + parameter names/types are included (~25 tokens per tool).
+                    append("# Tools\n\n")
+                    append("You may call one or more functions to assist with the user query.\n")
+                    append("You are provided with function signatures within <tools></tools> XML tags:\n\n")
+                    append("<tools>\n")
                     tools.forEach { t ->
-                        val json = try {
+                        val schema = try {
                             lenientJson.parseToJsonElement(t.descriptionJsonString).jsonObject
                         } catch (_: Throwable) { null }
-                        val desc = json?.get("description")?.jsonPrimitive?.contentOrNull ?: ""
-                        val params = try {
-                            json?.get("parameters")?.jsonObject
-                                ?.get("properties")?.jsonObject
-                                ?.keys?.joinToString(", ") ?: ""
-                        } catch (_: Throwable) { "" }
-                        append("- ${t.name}($params): $desc\n")
+                        val name = schema?.get("name")?.jsonPrimitive?.contentOrNull ?: t.name
+                        val origParams = schema?.get("parameters")?.jsonObject
+                        val minimalParams = if (origParams != null) {
+                            buildJsonObject {
+                                put("type", "object")
+                                val props = origParams["properties"]?.jsonObject
+                                if (!props.isNullOrEmpty()) {
+                                    put("properties", buildJsonObject {
+                                        props.forEach { (k, v) ->
+                                            val type = v.jsonObject["type"]?.jsonPrimitive?.contentOrNull ?: "string"
+                                            put(k, buildJsonObject { put("type", type) })
+                                        }
+                                    })
+                                }
+                                val req = origParams["required"]?.jsonArray
+                                if (!req.isNullOrEmpty()) put("required", req)
+                            }
+                        } else null
+                        val entry = buildJsonObject {
+                            put("type", "function")
+                            put("function", buildJsonObject {
+                                put("name", name)
+                                if (minimalParams != null) put("parameters", minimalParams)
+                            })
+                        }
+                        append(entry.toString())
+                        append("\n")
                     }
-                    append("\n")
+                    append("</tools>\n\n")
+                    append("For each function call, return a json object within <tool_call></tool_call> XML tags:\n")
+                    append("<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>\n\n")
                 }
                 append(sanitizedSystemPrompt ?: "")
             }.ifBlank { null }

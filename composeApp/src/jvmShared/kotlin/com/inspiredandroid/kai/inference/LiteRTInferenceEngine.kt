@@ -301,7 +301,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 if (firstReasoning == null) {
                     firstReasoning = THINK_BLOCK_REGEX.find(raw)?.groupValues?.get(1)?.trim()?.ifBlank { null }
                 }
-                val text = stripThinkBlocks(raw)
+                val text = stripToolCallBlocks(stripThinkBlocks(raw))
                 // Search raw output (before think stripping) so tool calls emitted inside
                 // the <think> block are still detected — Qwen3 often places <tool_call>
                 // inside <think> and then outputs plain text in the actual response.
@@ -383,6 +383,18 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             .replace("</think>", "")
             .trim()
 
+    // Remove <tool_call>…</tool_call> blocks and any trailing incomplete <tool_call>
+    // fragment from text that will be shown to the user. The model sometimes emits a
+    // malformed or partial tool call outside the <think> block on follow-up iterations;
+    // parseFirstToolCall would return null for it (bad JSON) but the raw tag would leak
+    // into the visible response without this cleanup.
+    private fun stripToolCallBlocks(s: String): String {
+        var result = TOOL_CALL_BLOCK_REGEX.replace(s, "")
+        val idx = result.indexOf("<tool_call>")
+        if (idx >= 0) result = result.substring(0, idx)
+        return result.trim()
+    }
+
     private fun scheduleIdleRelease() {
         idleReleaseJob?.cancel()
         idleReleaseJob = scope.launch {
@@ -418,6 +430,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
         private const val DOWNLOAD_SPACE_BUFFER_BYTES = 500L * 1024 * 1024 // 500 MB
         private const val GPU_DRAIN_DELAY_MS = 750L
         private val THINK_BLOCK_REGEX = Regex("<think>(.*?)</think>", RegexOption.DOT_MATCHES_ALL)
+        private val TOOL_CALL_BLOCK_REGEX = Regex("<tool_call>(.*?)</tool_call>", RegexOption.DOT_MATCHES_ALL)
         private val lenientJson = Json { ignoreUnknownKeys = true; isLenient = true }
     }
 

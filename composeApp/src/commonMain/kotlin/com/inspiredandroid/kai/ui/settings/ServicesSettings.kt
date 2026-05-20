@@ -909,15 +909,20 @@ private fun LiteRTSettings(
 
     if (downloadError != null) {
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(
+        val errorText = if (downloadError == DownloadError.AUTH_ERROR) {
+            "Access denied (401/403). Check your Hugging Face token and that you accepted the model license on huggingface.co."
+        } else {
+            stringResource(
                 when (downloadError) {
                     DownloadError.NOT_ENOUGH_DISK_SPACE -> Res.string.litert_error_not_enough_disk_space
                     DownloadError.NETWORK_ERROR -> Res.string.litert_error_network
                     DownloadError.DOWNLOAD_INCOMPLETE -> Res.string.litert_error_download_incomplete
-                    DownloadError.AUTH_ERROR -> Res.string.litert_error_auth
+                    else -> Res.string.litert_error_network
                 },
-            ),
+            )
+        }
+        Text(
+            text = errorText,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )

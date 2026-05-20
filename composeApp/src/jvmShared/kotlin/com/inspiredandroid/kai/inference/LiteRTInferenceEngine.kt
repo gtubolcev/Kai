@@ -162,23 +162,13 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 println("LiteRT: initializing model=${model.id} maxNumTokens=$requestedTokens")
 
                 fun tryBackends(maxTokens: Int?): Engine {
-                    val nativeLibDir = getNativeLibraryDir()
-                    val backends = if (nativeLibDir.isNotEmpty()) {
-                        listOf(Backend.NPU(nativeLibDir), Backend.GPU(), Backend.CPU())
-                    } else {
-                        listOf(Backend.GPU(), Backend.CPU())
+                    return try {
+                        println("LiteRT: trying backend=GPU")
+                        initWithBackend(Backend.GPU(), maxTokens)
+                    } catch (e: Exception) {
+                        println("LiteRT: backend=GPU failed: ${e.message}")
+                        initWithBackend(Backend.CPU(), maxTokens)
                     }
-                    var lastException: Exception? = null
-                    for (backend in backends) {
-                        try {
-                            println("LiteRT: trying backend=${backend::class.simpleName}")
-                            return initWithBackend(backend, maxTokens)
-                        } catch (e: Exception) {
-                            println("LiteRT: backend=${backend::class.simpleName} failed: ${e.message}")
-                            lastException = e
-                        }
-                    }
-                    throw lastException!!
                 }
 
                 val newEngine = try {

@@ -2,8 +2,6 @@ package com.inspiredandroid.kai.inference
 
 expect fun getModelStorageDirectory(): String
 
-expect fun getNativeLibraryDir(): String
-
 expect fun getModelCacheDirectory(): String
 
 expect fun getAvailableMemoryBytes(): Long

@@ -39,6 +39,11 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 import kotlin.time.Duration.Companion.milliseconds
 
 val MODEL_CATALOG = listOf(
@@ -247,12 +252,25 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             val hasCaldavTools = toolNames.any { it.startsWith("caldav") }
             val effectiveSystemPrompt = buildString {
                 if (hasCaldavTools) {
-                    append("TOOL USE RULES: Always call a tool instead of saying it is unavailable.")
-                    append(" To create a task: call caldav_create_task({\"summary\":\"...\"}).")
-                    append(" To list tasks: call caldav_list_tasks.")
-                    append(" To list events: call caldav_list_events.")
-                    append(" To search the web: call web_search.")
-                    append(" Never say a caldav tool is unavailable — they are always available.\n\n")
+                    val fmt = DateTimeFormatter.ofPattern("yyyyMMdd")
+                    val today = LocalDate.now(ZoneOffset.UTC)
+                    val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                    val weekEnd = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+                    val monthStart = today.withDayOfMonth(1)
+                    val monthEnd = today.with(TemporalAdjusters.lastDayOfMonth())
+                    val todayStr = today.format(fmt)
+                    val weekStartStr = weekStart.format(fmt)
+                    val weekEndStr = weekEnd.format(fmt)
+                    val monthStartStr = monthStart.format(fmt)
+                    val monthEndStr = monthEnd.format(fmt)
+                    append("Today is ${today}. ")
+                    append("TOOL USE RULES: Always call a tool immediately — never ask the user for dates or clarification.\n")
+                    append("Date ranges to use with caldav_list_events (format YYYYMMDDTHHmmssZ):\n")
+                    append("- today: from_date=${todayStr}T000000Z to_date=${todayStr}T235959Z\n")
+                    append("- this week: from_date=${weekStartStr}T000000Z to_date=${weekEndStr}T235959Z\n")
+                    append("- this month: from_date=${monthStartStr}T000000Z to_date=${monthEndStr}T235959Z\n")
+                    append("For other periods compute similarly from today's date.\n")
+                    append("To list tasks: call caldav_list_tasks. To create a task: call caldav_create_task.\n\n")
                 }
                 if (isQwen3 && tools.isNotEmpty()) {
                     // Use the native Qwen3 <tools> format the model was trained on.

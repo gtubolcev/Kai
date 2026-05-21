@@ -948,26 +948,28 @@ actual fun getAvailableTools(): List<Tool> {
                         val calendars = mutableListOf<Map<String, Any>>()
                         val responseRegex = Regex("""<[^:>\s]+:response[^>]*>([\s\S]*?)</[^:>\s]+:response>""")
                         val hrefRegex = Regex("""<[^:>\s]+:href[^>]*>([^<]+)</[^:>\s]+:href>""")
-                        val displayNameRegex = Regex("""<[^:>\s]+:displayname[^>]*>([^<]*)</[^:>\s]+:displayname>""")
+                        val displayNameRegex = Regex("""<[^:>\s]+:displayname[^>]*>([^<]+)</[^:>\s]+:displayname>""")
                         val compRegex = Regex("""<[^:>\s]+:comp\s+name="([^"]+)"""")
+                        val statusOkRegex = Regex("""HTTP/1\.1 200""")
+                        // Extract just the path portion of homeUrl for comparison with href paths
+                        val homePath = try {
+                            java.net.URI(homeUrl).path.trimEnd('/')
+                        } catch (_: Exception) { homeUrl.trimEnd('/') }
 
                         responseRegex.findAll(xml).forEach { responseMatch ->
                             val block = responseMatch.groupValues[1]
+                            // Only include 200 OK responses
+                            if (!statusOkRegex.containsMatchIn(block)) return@forEach
                             val href = hrefRegex.find(block)?.groupValues?.get(1)?.trim() ?: return@forEach
-
-                            // Skip the home resource itself
-                            val normalizedHome = homeUrl.trimEnd('/')
                             val normalizedHref = href.trimEnd('/')
-                            if (normalizedHref == normalizedHome || normalizedHref == normalizedHome.substringAfterLast("/")) return@forEach
-
+                            // Skip the home collection itself
+                            if (normalizedHref == homePath) return@forEach
                             val slug = normalizedHref.substringAfterLast('/')
                             if (slug.isBlank()) return@forEach
-
-                            val displayName = displayNameRegex.find(block)?.groupValues?.get(1)?.trim() ?: slug
+                            val displayName = displayNameRegex.find(block)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() } ?: slug
                             val components = compRegex.findAll(block).map { it.groupValues[1].uppercase() }.toSet()
                             val supportsEvents = "VEVENT" in components
                             val supportsTasks = "VTODO" in components
-
                             calendars.add(mapOf(
                                 "slug" to slug,
                                 "name" to displayName,

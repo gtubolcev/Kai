@@ -595,7 +595,7 @@ actual fun getAvailableTools(): List<Tool> {
                         "Create a task (VTODO) on the CalDAV server",
                         mapOf(
                             "summary" to ParameterSchema("string", "Task title/summary", true),
-                            "due_date" to ParameterSchema("string", "Due date in ISO 8601 date format, e.g. '20240315'", false),
+                            "due_date" to ParameterSchema("string", "Due date: date only '20240315' or datetime '20240315T120000Z'", false),
                             "priority" to ParameterSchema("integer", "Priority 1 (highest) to 9 (lowest)", false),
                             "description" to ParameterSchema("string", "Task description or notes", false),
                         ),
@@ -617,7 +617,12 @@ actual fun getAvailableTools(): List<Tool> {
                             appendLine("BEGIN:VTODO")
                             appendLine("UID:$uid")
                             appendLine("SUMMARY:$summary")
-                            if (dueDate != null) appendLine("DUE;VALUE=DATE:$dueDate")
+                            if (dueDate != null) {
+                                // Model may pass datetime (20260522T000000Z) or date-only (20260522).
+                                // VALUE=DATE requires plain date; datetime format must use DUE without VALUE=DATE.
+                                if (dueDate.contains('T')) appendLine("DUE:$dueDate")
+                                else appendLine("DUE;VALUE=DATE:$dueDate")
+                            }
                             if (priority != null) appendLine("PRIORITY:$priority")
                             if (description != null) appendLine("DESCRIPTION:$description")
                             appendLine("STATUS:NEEDS-ACTION")

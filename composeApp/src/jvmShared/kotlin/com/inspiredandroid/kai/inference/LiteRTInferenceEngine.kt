@@ -324,7 +324,10 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 initialMessages = initialMessages,
                 tools = toolProviders,
                 samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
-                automaticToolCalling = !isQwen3,
+                // Only enable automatic tool calling when tools are actually provided.
+                // With an empty tool list the SDK injects a spurious <tools/> block that
+                // confuses fine-tuned models like FunctionGemma, causing <pad> output.
+                automaticToolCalling = !isQwen3 && toolProviders.isNotEmpty(),
             )
             val prev = conversation
             conversation = null

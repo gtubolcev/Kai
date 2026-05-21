@@ -286,6 +286,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                             lenientJson.parseToJsonElement(t.descriptionJsonString).jsonObject
                         } catch (_: Throwable) { null }
                         val name = schema?.get("name")?.jsonPrimitive?.contentOrNull ?: t.name
+                        val description = schema?.get("description")?.jsonPrimitive?.contentOrNull
                         val origParams = schema?.get("parameters")?.jsonObject
                         val minimalParams = if (origParams != null) {
                             buildJsonObject {
@@ -307,6 +308,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                             put("type", "function")
                             put("function", buildJsonObject {
                                 put("name", name)
+                                if (description != null) put("description", description)
                                 if (minimalParams != null) put("parameters", minimalParams)
                             })
                         }

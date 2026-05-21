@@ -269,7 +269,8 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     append("- this week: from_date=${weekStartStr}T000000Z to_date=${weekEndStr}T235959Z\n")
                     append("- this month: from_date=${monthStartStr}T000000Z to_date=${monthEndStr}T235959Z\n")
                     append("For other periods compute similarly from today's date.\n")
-                    append("To list tasks: call caldav_list_tasks. To create a task: call caldav_create_task.\n\n")
+                    append("To list tasks: call caldav_list_tasks with no arguments.\n")
+                    append("To create a task: call caldav_create_task with {\"summary\":\"<task title>\"} — only summary is required, no date needed.\n\n")
                 }
                 if (isQwen3 && tools.isNotEmpty()) {
                     // Use the native Qwen3 <tools> format the model was trained on.

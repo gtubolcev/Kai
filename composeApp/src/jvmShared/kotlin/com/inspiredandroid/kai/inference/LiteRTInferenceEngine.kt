@@ -308,7 +308,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                             put("type", "function")
                             put("function", buildJsonObject {
                                 put("name", name)
-                                if (description != null) put("description", description)
+                                // Include description only for caldav tools to help the model
+                                // distinguish events vs tasks without blowing the 4K context budget.
+                                if (description != null && name.startsWith("caldav_")) put("description", description)
                                 if (minimalParams != null) put("parameters", minimalParams)
                             })
                         }

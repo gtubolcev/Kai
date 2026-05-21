@@ -76,6 +76,8 @@ import kai.composeapp.generated.resources.tool_caldav_update_event_description
 import kai.composeapp.generated.resources.tool_caldav_update_event_name
 import kai.composeapp.generated.resources.tool_caldav_update_task_description
 import kai.composeapp.generated.resources.tool_caldav_update_task_name
+import kai.composeapp.generated.resources.tool_caldav_list_calendars_description
+import kai.composeapp.generated.resources.tool_caldav_list_calendars_name
 import kai.composeapp.generated.resources.tool_create_calendar_event_description
 import kai.composeapp.generated.resources.tool_create_calendar_event_name
 import kai.composeapp.generated.resources.tool_open_file_description
@@ -313,6 +315,15 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
             descriptionRes = Res.string.tool_caldav_update_task_description,
         ),
     )
+    add(
+        ToolInfo(
+            id = "caldav_list_calendars",
+            name = "List CalDAV Calendars",
+            description = "List available CalDAV calendars with their names and supported types (VEVENT/VTODO)",
+            nameRes = Res.string.tool_caldav_list_calendars_name,
+            descriptionRes = Res.string.tool_caldav_list_calendars_description,
+        ),
+    )
     // SMS tools are intentionally absent here: availability is driven by the Agent-tab
     // master toggles (isSmsEnabled / isSmsSendEnabled) plus the FOSS-only `isSmsSupported`
     // check in `getAvailableTools()`. Listing per-tool toggles in the Tools tab was dead
@@ -536,6 +547,15 @@ actual fun getAvailableTools(): List<Tool> {
             val caldavPassword = appSettings.getCaldavPassword()
             val caldavTasksUrl = appSettings.getCaldavTasksUrl().let { it.ifBlank { caldavUrl } }
 
+            // Returns the calendar home URL (parent directory of the configured calendar URL)
+            // and resolves an optional calendar_name slug against it.
+            fun calendarUrlFor(base: String, calendarName: String?): String {
+                val trimmed = base.trimEnd('/')
+                val parentSlash = trimmed.lastIndexOf('/')
+                val home = if (parentSlash > 0) trimmed.substring(0, parentSlash + 1) else "$trimmed/"
+                return if (calendarName.isNullOrBlank()) base else "$home$calendarName/"
+            }
+
             if (appSettings.isToolEnabled("caldav_create_event")) {
                 add(object : Tool {
                     override val schema = ToolSchema(
@@ -547,6 +567,7 @@ actual fun getAvailableTools(): List<Tool> {
                             "end_datetime" to ParameterSchema("string", "End date-time in ISO 8601 format", true),
                             "description" to ParameterSchema("string", "Event description or notes", false),
                             "location" to ParameterSchema("string", "Event location", false),
+                            "calendar_name" to ParameterSchema("string", "Calendar slug to create event in, e.g. 'personal' or 'newcalendar'. Uses default if omitted.", false),
                         ),
                     )
 
@@ -560,6 +581,7 @@ actual fun getAvailableTools(): List<Tool> {
                             ?: return mapOf("success" to false, "error" to "end_datetime is required")
                         val description = args["description"] as? String
                         val location = args["location"] as? String
+                        val calendarName = args["calendar_name"] as? String
 
                         val uid = kotlin.uuid.Uuid.random().toString()
                         val ics = buildString {
@@ -577,7 +599,8 @@ actual fun getAvailableTools(): List<Tool> {
                             appendLine("END:VCALENDAR")
                         }
 
-                        val url = "${caldavUrl.trimEnd('/')}/$uid.ics"
+                        val targetUrl = calendarUrlFor(caldavUrl, calendarName)
+                        val url = "${targetUrl.trimEnd('/')}/$uid.ics"
                         val result = CaldavClient(caldavUsername, caldavPassword).put(url, ics)
                         return if (result.isSuccess) {
                             mapOf("success" to true, "uid" to uid, "message" to "Event '$summary' created")
@@ -598,6 +621,7 @@ actual fun getAvailableTools(): List<Tool> {
                             "due_date" to ParameterSchema("string", "Due date: date only '20240315' or datetime '20240315T120000Z'", false),
                             "priority" to ParameterSchema("integer", "Priority 1 (highest) to 9 (lowest)", false),
                             "description" to ParameterSchema("string", "Task description or notes", false),
+                            "calendar_name" to ParameterSchema("string", "Calendar slug to create task in, e.g. 'newcalendar'. Uses default if omitted.", false),
                         ),
                     )
 
@@ -608,6 +632,7 @@ actual fun getAvailableTools(): List<Tool> {
                         val dueDate = args["due_date"] as? String
                         val priority = (args["priority"] as? Number)?.toInt()
                         val description = args["description"] as? String
+                        val calendarName = args["calendar_name"] as? String
 
                         val uid = kotlin.uuid.Uuid.random().toString()
                         val ics = buildString {
@@ -630,7 +655,8 @@ actual fun getAvailableTools(): List<Tool> {
                             appendLine("END:VCALENDAR")
                         }
 
-                        val url = "${caldavTasksUrl.trimEnd('/')}/$uid.ics"
+                        val targetUrl = calendarUrlFor(caldavTasksUrl, calendarName)
+                        val url = "${targetUrl.trimEnd('/')}/$uid.ics"
                         val result = CaldavClient(caldavUsername, caldavPassword).put(url, ics)
                         return if (result.isSuccess) {
                             mapOf("success" to true, "uid" to uid, "message" to "Task '$summary' created")
@@ -645,10 +671,11 @@ actual fun getAvailableTools(): List<Tool> {
                 add(object : Tool {
                     override val schema = ToolSchema(
                         "caldav_list_events",
-                        "List calendar events from the CalDAV server within a date range",
+                        "List calendar events (VEVENT) from the CalDAV server within a date range",
                         mapOf(
                             "from_date" to ParameterSchema("string", "Start of range in iCalendar UTC format, e.g. '20240101T000000Z'", true),
                             "to_date" to ParameterSchema("string", "End of range in iCalendar UTC format, e.g. '20241231T235959Z'", true),
+                            "calendar_name" to ParameterSchema("string", "Calendar slug to query, e.g. 'personal' or 'newcalendar'. Uses default if omitted.", false),
                         ),
                     )
 
@@ -657,6 +684,7 @@ actual fun getAvailableTools(): List<Tool> {
                             ?: return mapOf("success" to false, "error" to "from_date is required")
                         val toDate = args["to_date"] as? String
                             ?: return mapOf("success" to false, "error" to "to_date is required")
+                        val calendarName = args["calendar_name"] as? String
 
                         val xmlBody = """<?xml version="1.0" encoding="UTF-8"?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
@@ -670,7 +698,8 @@ actual fun getAvailableTools(): List<Tool> {
   </C:filter>
 </C:calendar-query>"""
 
-                        val result = CaldavClient(caldavUsername, caldavPassword).report(caldavUrl, xmlBody)
+                        val targetUrl = calendarUrlFor(caldavUrl, calendarName)
+                        val result = CaldavClient(caldavUsername, caldavPassword).report(targetUrl, xmlBody)
                         return if (result.isSuccess) {
                             val events = CaldavParser.parseEvents(result.getOrThrow()).map { props ->
                                 mapOf(
@@ -880,6 +909,73 @@ actual fun getAvailableTools(): List<Tool> {
                         } else {
                             mapOf("success" to false, "error" to (putResult.exceptionOrNull()?.message ?: "Failed to update task"))
                         }
+                    }
+                })
+            }
+
+            if (appSettings.isToolEnabled("caldav_list_calendars")) {
+                add(object : Tool {
+                    override val schema = ToolSchema(
+                        "caldav_list_calendars",
+                        "List available CalDAV calendars with their names and supported component types (VEVENT for events, VTODO for tasks).",
+                        emptyMap(),
+                    )
+
+                    override suspend fun execute(args: Map<String, Any>): Any {
+                        val client = CaldavClient(caldavUsername, caldavPassword)
+                        val trimmed = caldavUrl.trimEnd('/')
+                        val parentSlash = trimmed.lastIndexOf('/')
+                        val homeUrl = if (parentSlash > 0) "${trimmed.substring(0, parentSlash + 1)}" else "$trimmed/"
+
+                        val xmlBody = """<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop>
+    <D:displayname/>
+    <C:supported-calendar-component-set/>
+  </D:prop>
+</D:propfind>"""
+                        val result = client.propfindDepth1(homeUrl, xmlBody)
+                        if (result.isFailure) {
+                            return mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to list calendars"))
+                        }
+
+                        val xml = result.getOrThrow()
+                        val calendars = parseCalendarList(xml, homeUrl)
+                        return mapOf("success" to true, "calendars" to calendars)
+                    }
+
+                    private fun parseCalendarList(xml: String, homeUrl: String): List<Map<String, Any>> {
+                        val calendars = mutableListOf<Map<String, Any>>()
+                        val responseRegex = Regex("""<[^:>\s]+:response[^>]*>([\s\S]*?)</[^:>\s]+:response>""")
+                        val hrefRegex = Regex("""<[^:>\s]+:href[^>]*>([^<]+)</[^:>\s]+:href>""")
+                        val displayNameRegex = Regex("""<[^:>\s]+:displayname[^>]*>([^<]*)</[^:>\s]+:displayname>""")
+                        val compRegex = Regex("""<[^:>\s]+:comp\s+name="([^"]+)"""")
+
+                        responseRegex.findAll(xml).forEach { responseMatch ->
+                            val block = responseMatch.groupValues[1]
+                            val href = hrefRegex.find(block)?.groupValues?.get(1)?.trim() ?: return@forEach
+
+                            // Skip the home resource itself
+                            val normalizedHome = homeUrl.trimEnd('/')
+                            val normalizedHref = href.trimEnd('/')
+                            if (normalizedHref == normalizedHome || normalizedHref == normalizedHome.substringAfterLast("/")) return@forEach
+
+                            val slug = normalizedHref.substringAfterLast('/')
+                            if (slug.isBlank()) return@forEach
+
+                            val displayName = displayNameRegex.find(block)?.groupValues?.get(1)?.trim() ?: slug
+                            val components = compRegex.findAll(block).map { it.groupValues[1].uppercase() }.toSet()
+                            val supportsEvents = "VEVENT" in components
+                            val supportsTasks = "VTODO" in components
+
+                            calendars.add(mapOf(
+                                "slug" to slug,
+                                "name" to displayName,
+                                "supports_events" to supportsEvents,
+                                "supports_tasks" to supportsTasks,
+                            ))
+                        }
+                        return calendars
                     }
                 })
             }

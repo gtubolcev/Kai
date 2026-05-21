@@ -33,6 +33,7 @@ class LocalToolAllowlistTest {
             "caldav_delete_task",
             "caldav_update_event",
             "caldav_update_task",
+            "caldav_list_calendars",
         )
         assertEquals(expected, LOCAL_TOOL_ALLOWLIST)
     }

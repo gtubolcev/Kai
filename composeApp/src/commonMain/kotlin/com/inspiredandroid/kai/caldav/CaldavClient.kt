@@ -84,6 +84,24 @@ class CaldavClient(
         }
     }
 
+    suspend fun propfindDepth1(url: String, xmlBody: String): Result<String> = runCatching {
+        val response = client.request(url) {
+            method = HttpMethod("PROPFIND")
+            header("Authorization", basicAuth())
+            header("Depth", "1")
+            header("Content-Type", "application/xml")
+            setBody(xmlBody)
+        }
+        when (response.status.value) {
+            401 -> throw CaldavException("Invalid credentials")
+            404 -> throw CaldavException("Collection not found")
+            else -> if (!response.status.isSuccess() && response.status.value != 207) {
+                throw CaldavException("HTTP ${response.status.value}: ${response.bodyAsText()}")
+            }
+        }
+        response.bodyAsText()
+    }
+
     suspend fun report(url: String, xmlBody: String): Result<String> = runCatching {
         val response = client.request(url) {
             method = HttpMethod("REPORT")

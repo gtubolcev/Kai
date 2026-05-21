@@ -633,6 +633,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             } catch (e: Throwable) {
                 if (tempFile?.exists() == true) tempFile.delete()
                 if (e is CancellationException) throw e
+                println("LiteRT: download failed with ${e::class.simpleName}: ${e.message}")
                 _downloadError.value = DownloadError.NETWORK_ERROR
             } finally {
                 _downloadingModelId.value = null

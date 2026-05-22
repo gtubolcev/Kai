@@ -671,7 +671,7 @@ actual fun getAvailableTools(): List<Tool> {
                 add(object : Tool {
                     override val schema = ToolSchema(
                         "caldav_list_events",
-                        "List calendar events (VEVENT) from the CalDAV server within a date range",
+                        "List calendar events and tasks-with-due-dates from the CalDAV server within a date range. Returns both VEVENTs and VTODOs that fall in the range.",
                         mapOf(
                             "from_date" to ParameterSchema("string", "Start of range in iCalendar UTC format, e.g. '20240101T000000Z'", true),
                             "to_date" to ParameterSchema("string", "End of range in iCalendar UTC format, e.g. '20241231T235959Z'", true),
@@ -685,8 +685,10 @@ actual fun getAvailableTools(): List<Tool> {
                         val toDate = args["to_date"] as? String
                             ?: return mapOf("success" to false, "error" to "to_date is required")
                         val calendarName = args["calendar_name"] as? String
+                        val targetUrl = calendarUrlFor(caldavUrl, calendarName)
+                        val client = CaldavClient(caldavUsername, caldavPassword)
 
-                        val xmlBody = """<?xml version="1.0" encoding="UTF-8"?>
+                        val eventXml = """<?xml version="1.0" encoding="UTF-8"?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
   <D:prop><D:getetag/><C:calendar-data/></D:prop>
   <C:filter>
@@ -698,22 +700,49 @@ actual fun getAvailableTools(): List<Tool> {
   </C:filter>
 </C:calendar-query>"""
 
-                        val targetUrl = calendarUrlFor(caldavUrl, calendarName)
-                        val result = CaldavClient(caldavUsername, caldavPassword).report(targetUrl, xmlBody)
-                        return if (result.isSuccess) {
-                            val events = CaldavParser.parseEvents(result.getOrThrow()).map { props ->
-                                mapOf(
+                        val todoXml = """<?xml version="1.0" encoding="UTF-8"?>
+<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop><D:getetag/><C:calendar-data/></D:prop>
+  <C:filter>
+    <C:comp-filter name="VCALENDAR">
+      <C:comp-filter name="VTODO">
+        <C:time-range start="$fromDate" end="$toDate"/>
+      </C:comp-filter>
+    </C:comp-filter>
+  </C:filter>
+</C:calendar-query>"""
+
+                        val items = mutableListOf<Map<String, String>>()
+
+                        val eventResult = client.report(targetUrl, eventXml)
+                        if (eventResult.isSuccess) {
+                            CaldavParser.parseEvents(eventResult.getOrThrow()).forEach { props ->
+                                items.add(mapOf(
                                     "uid" to (props["UID"] ?: ""),
                                     "summary" to (props["SUMMARY"] ?: ""),
                                     "start" to (props["DTSTART"] ?: ""),
                                     "end" to (props["DTEND"] ?: ""),
-                                    "location" to (props["LOCATION"] ?: ""),
-                                )
+                                    "type" to "event",
+                                ))
                             }
-                            mapOf("success" to true, "events" to events, "count" to events.size)
-                        } else {
-                            mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to list events"))
                         }
+
+                        val todoResult = client.report(targetUrl, todoXml)
+                        if (todoResult.isSuccess) {
+                            CaldavParser.parseTasks(todoResult.getOrThrow()).forEach { props ->
+                                items.add(mapOf(
+                                    "uid" to (props["UID"] ?: ""),
+                                    "summary" to (props["SUMMARY"] ?: ""),
+                                    "due" to (props["DUE"] ?: props["DTSTART"] ?: ""),
+                                    "type" to "task",
+                                ))
+                            }
+                        }
+
+                        if (eventResult.isFailure && todoResult.isFailure) {
+                            return mapOf("success" to false, "error" to (eventResult.exceptionOrNull()?.message ?: "Failed to list"))
+                        }
+                        return mapOf("success" to true, "items" to items, "count" to items.size)
                     }
                 })
             }

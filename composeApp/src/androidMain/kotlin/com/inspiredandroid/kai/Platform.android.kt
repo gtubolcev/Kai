@@ -956,6 +956,9 @@ actual fun getAvailableTools(): List<Tool> {
                             java.net.URI(homeUrl).path.trimEnd('/')
                         } catch (_: Exception) { homeUrl.trimEnd('/') }
 
+                        val uuidRegex = Regex("""^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$""", RegexOption.IGNORE_CASE)
+                        val numericSlugRegex = Regex("""^\d{8,}$""")
+
                         responseRegex.findAll(xml).forEach { responseMatch ->
                             val block = responseMatch.groupValues[1]
                             // Only include 200 OK responses
@@ -966,15 +969,23 @@ actual fun getAvailableTools(): List<Tool> {
                             if (normalizedHref == homePath) return@forEach
                             val slug = normalizedHref.substringAfterLast('/')
                             if (slug.isBlank()) return@forEach
+                            // Skip server-internal or backup collections
+                            if (slug == "inbox" || slug == "outbox" || slug == "trashbin" || slug == "notification") return@forEach
+                            if (slug.startsWith("personal-back-")) return@forEach
+                            if (uuidRegex.matches(slug) || numericSlugRegex.matches(slug)) return@forEach
                             val displayName = displayNameRegex.find(block)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() } ?: slug
                             val components = compRegex.findAll(block).map { it.groupValues[1].uppercase() }.toSet()
                             val supportsEvents = "VEVENT" in components
                             val supportsTasks = "VTODO" in components
+                            // type summary for compact model output
+                            val types = buildList {
+                                if (supportsEvents) add("events")
+                                if (supportsTasks) add("tasks")
+                            }.joinToString("+")
                             calendars.add(mapOf(
                                 "slug" to slug,
                                 "name" to displayName,
-                                "supports_events" to supportsEvents,
-                                "supports_tasks" to supportsTasks,
+                                "types" to types,
                             ))
                         }
                         return calendars

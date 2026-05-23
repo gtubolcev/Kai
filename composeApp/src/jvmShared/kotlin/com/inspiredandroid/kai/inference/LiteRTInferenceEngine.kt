@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.File
@@ -108,6 +110,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
 
     private val _engineState = MutableStateFlow(EngineState.UNINITIALIZED)
     override val engineState: StateFlow<EngineState> = _engineState
+    private val initMutex = Mutex()
 
     private val _downloadingModelId = MutableStateFlow<String?>(null)
     override val downloadingModelId: StateFlow<String?> = _downloadingModelId
@@ -119,6 +122,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
     override val downloadError: StateFlow<DownloadError?> = _downloadError
 
     override suspend fun initialize(model: DownloadedModel, contextTokens: Int) {
+        initMutex.withLock {
         withContext(Dispatchers.IO) {
             idleReleaseJob?.cancel()
             if (currentModelId == model.id && currentContextTokens == contextTokens && _engineState.value == EngineState.READY) return@withContext
@@ -197,6 +201,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 throw e
             }
         }
+        } // initMutex.withLock
     }
 
     override suspend fun release() {

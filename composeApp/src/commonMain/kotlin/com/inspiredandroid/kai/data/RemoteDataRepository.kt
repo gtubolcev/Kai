@@ -2035,7 +2035,8 @@ class RemoteDataRepository(
 
     override suspend fun preloadLocalModel() {
         val engine = localInferenceEngine ?: return
-        if (engine.engineState.value == EngineState.READY) return
+        val state = engine.engineState.value
+        if (state == EngineState.READY || state == EngineState.INITIALIZING) return
         val model = engine.getDownloadedModels().firstOrNull() ?: return
         val catalogModel = engine.getAvailableModels().find { it.id == model.id }
         val storedContext = appSettings.getModelContextTokens(model.id)

@@ -384,7 +384,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 // list results into plain text so the model just needs to present them.
                 val feedbackResult = if (isQwen3) {
                     val formatted = formatToolResultForQwen3(toolCall.name, toolResult)
-                    if (formatted.length > 800) formatted.take(800) + "…" else formatted
+                    if (formatted.length > 1500) formatted.take(1500) + "…" else formatted
                 } else {
                     toolResult
                 }

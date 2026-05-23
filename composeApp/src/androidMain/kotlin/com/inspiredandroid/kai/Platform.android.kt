@@ -745,14 +745,18 @@ actual fun getAvailableTools(): List<Tool> {
                         if (items.isEmpty()) {
                             return mapOf("success" to true, "result" to "No events or tasks found in the given date range.")
                         }
-                        val formatted = items.joinToString("\n") { item ->
+                        val limit = 20
+                        val shown = items.take(limit)
+                        val truncated = items.size > limit
+                        val formatted = shown.joinToString("\n") { item ->
                             if (item["type"] == "task") {
                                 "- ${item["summary"]} (task, due: ${item["due"]})"
                             } else {
                                 "- ${item["summary"]} (event, start: ${item["start"]}, end: ${item["end"]})"
                             }
                         }
-                        return mapOf("success" to true, "count" to items.size, "result" to "Found ${items.size} item(s):\n$formatted")
+                        val suffix = if (truncated) "\n(${items.size - limit} more not shown)" else ""
+                        return mapOf("success" to true, "count" to items.size, "result" to "Found ${items.size} item(s):\n$formatted$suffix")
                     }
                 })
             }
@@ -818,13 +822,17 @@ actual fun getAvailableTools(): List<Tool> {
                             if (tasks.isEmpty()) {
                                 mapOf("success" to true, "result" to "No tasks found.")
                             } else {
-                                val formatted = tasks.joinToString("\n") { props ->
+                                val limit = 20
+                                val shown = tasks.take(limit)
+                                val truncated = tasks.size > limit
+                                val formatted = shown.joinToString("\n") { props ->
                                     val summary = props["SUMMARY"] ?: ""
                                     val due = props["DUE"]?.let { ", due: $it" } ?: ""
                                     val status = props["STATUS"] ?: "NEEDS-ACTION"
                                     "- $summary (status: $status$due)"
                                 }
-                                mapOf("success" to true, "count" to tasks.size, "result" to "Found ${tasks.size} task(s):\n$formatted")
+                                val suffix = if (truncated) "\n(${tasks.size - limit} more not shown)" else ""
+                                mapOf("success" to true, "count" to tasks.size, "result" to "Found ${tasks.size} task(s):\n$formatted$suffix")
                             }
                         } else {
                             mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to list tasks"))

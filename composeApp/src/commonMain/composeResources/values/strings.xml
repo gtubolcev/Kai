@@ -103,12 +103,12 @@
     <string name="tool_caldav_create_event_description">Create a calendar event on the CalDAV server</string>
     <string name="tool_caldav_create_task_name">Create CalDAV Task</string>
     <string name="tool_caldav_create_task_description">Create a task (VTODO) on the CalDAV server</string>
-    <string name="tool_caldav_list_events_name">List CalDAV Events</string>
-    <string name="tool_caldav_list_events_description">List calendar events from the CalDAV server within a date range</string>
+    <string name="tool_caldav_fetch_events_name">Fetch CalDAV Events</string>
+    <string name="tool_caldav_fetch_events_description">Fetch calendar events from the CalDAV server within a date range</string>
     <string name="tool_caldav_delete_event_name">Delete CalDAV Event</string>
     <string name="tool_caldav_delete_event_description">Delete a calendar event from the CalDAV server by UID</string>
-    <string name="tool_caldav_list_tasks_name">List CalDAV Tasks</string>
-    <string name="tool_caldav_list_tasks_description">List tasks (VTODO) from the CalDAV server</string>
+    <string name="tool_caldav_fetch_tasks_name">Fetch CalDAV Tasks</string>
+    <string name="tool_caldav_fetch_tasks_description">Fetch tasks (VTODO) from the CalDAV server</string>
     <string name="tool_caldav_delete_task_name">Delete CalDAV Task</string>
     <string name="tool_caldav_delete_task_description">Delete a task from the CalDAV server by UID</string>
     <string name="tool_caldav_update_event_name">Update CalDAV Event</string>

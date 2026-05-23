@@ -264,13 +264,13 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     val monthEndStr = monthEnd.format(fmt)
                     append("Today is ${today}. ")
                     append("TOOL USE RULES: Always call a tool immediately — never ask the user for dates or clarification.\n")
-                    append("IMPORTANT: events (meetings, appointments) use caldav_list_events. Tasks (to-do items) use caldav_list_tasks. Never confuse them.\n")
-                    append("To list EVENTS: call caldav_list_events with from_date and to_date (format YYYYMMDDTHHmmssZ):\n")
+                    append("IMPORTANT: events (meetings, appointments) use caldav_fetch_events. Tasks (to-do items) use caldav_fetch_tasks. Never confuse them.\n")
+                    append("To list EVENTS: call caldav_fetch_events with from_date and to_date (format YYYYMMDDTHHmmssZ):\n")
                     append("- today: from_date=${todayStr}T000000Z to_date=${todayStr}T235959Z\n")
                     append("- this week: from_date=${weekStartStr}T000000Z to_date=${weekEndStr}T235959Z\n")
                     append("- this month: from_date=${monthStartStr}T000000Z to_date=${monthEndStr}T235959Z\n")
                     append("For other periods compute similarly from today's date.\n")
-                    append("To list TASKS (to-do items): call caldav_list_tasks with no arguments.\n")
+                    append("To list TASKS (to-do items): call caldav_fetch_tasks with no arguments.\n")
                     append("To create a TASK: call caldav_create_task with {\"summary\":\"<task title>\"} — only summary is required, no date needed.\n\n")
                 }
                 if (isQwen3 && tools.isNotEmpty()) {
@@ -512,7 +512,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             obj["result"]?.jsonPrimitive?.contentOrNull?.let { return it }
 
             return when {
-                toolName == "caldav_list_tasks" -> {
+                toolName == "caldav_fetch_tasks" -> {
                     val tasks = obj["tasks"]?.jsonArray ?: return result
                     if (tasks.isEmpty()) return "No tasks."
                     buildString {
@@ -529,7 +529,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                         }
                     }.trim()
                 }
-                toolName == "caldav_list_events" -> {
+                toolName == "caldav_fetch_events" -> {
                     val events = obj["events"]?.jsonArray ?: return result
                     if (events.isEmpty()) return "No events."
                     buildString {

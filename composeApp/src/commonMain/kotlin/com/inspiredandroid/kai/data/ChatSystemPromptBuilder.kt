@@ -100,9 +100,10 @@ internal const val DEFAULT_TOOL_USE_SECTION =
  */
 internal const val LOCAL_TOOL_USE_SECTION =
     "## Tool Use\n" +
-        "Only call a tool when the user explicitly asks you to use it or retrieve external information. " +
-        "For general tasks — writing, lists, questions, advice — answer directly without calling any tool. " +
-        "Never call calendar, CalDAV, or location tools unless the user specifically mentions calendar, events, or tasks."
+        "Only call a tool when the user explicitly asks you to look something up or interact with an external service. " +
+        "Writing, composing, creating, or generating content (lists, texts, plans, ideas) — do that directly in your reply, no tools. " +
+        "'Create a list', 'make a list', 'write a list' = write text. Do NOT call caldav_fetch_tasks or any tool for these. " +
+        "Only call caldav_fetch_tasks or caldav_fetch_events when the user says 'show my calendar', 'what tasks do I have', or similar."
 
 /**
  * Universal acting-vs-clarifying policy composed into every chat variant. Caps the

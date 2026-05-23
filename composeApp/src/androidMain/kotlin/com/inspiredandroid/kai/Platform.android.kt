@@ -68,10 +68,10 @@ import kai.composeapp.generated.resources.tool_caldav_delete_event_description
 import kai.composeapp.generated.resources.tool_caldav_delete_event_name
 import kai.composeapp.generated.resources.tool_caldav_delete_task_description
 import kai.composeapp.generated.resources.tool_caldav_delete_task_name
-import kai.composeapp.generated.resources.tool_caldav_list_events_description
-import kai.composeapp.generated.resources.tool_caldav_list_events_name
-import kai.composeapp.generated.resources.tool_caldav_list_tasks_description
-import kai.composeapp.generated.resources.tool_caldav_list_tasks_name
+import kai.composeapp.generated.resources.tool_caldav_fetch_events_description
+import kai.composeapp.generated.resources.tool_caldav_fetch_events_name
+import kai.composeapp.generated.resources.tool_caldav_fetch_tasks_description
+import kai.composeapp.generated.resources.tool_caldav_fetch_tasks_name
 import kai.composeapp.generated.resources.tool_caldav_update_event_description
 import kai.composeapp.generated.resources.tool_caldav_update_event_name
 import kai.composeapp.generated.resources.tool_caldav_update_task_description
@@ -263,11 +263,11 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
     )
     add(
         ToolInfo(
-            id = "caldav_list_events",
+            id = "caldav_fetch_events",
             name = "List CalDAV Events",
             description = "List calendar events from the CalDAV server within a date range",
-            nameRes = Res.string.tool_caldav_list_events_name,
-            descriptionRes = Res.string.tool_caldav_list_events_description,
+            nameRes = Res.string.tool_caldav_fetch_events_name,
+            descriptionRes = Res.string.tool_caldav_fetch_events_description,
         ),
     )
     add(
@@ -281,11 +281,11 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
     )
     add(
         ToolInfo(
-            id = "caldav_list_tasks",
+            id = "caldav_fetch_tasks",
             name = "List CalDAV Tasks",
             description = "List tasks (VTODO) from the CalDAV server",
-            nameRes = Res.string.tool_caldav_list_tasks_name,
-            descriptionRes = Res.string.tool_caldav_list_tasks_description,
+            nameRes = Res.string.tool_caldav_fetch_tasks_name,
+            descriptionRes = Res.string.tool_caldav_fetch_tasks_description,
         ),
     )
     add(
@@ -667,10 +667,10 @@ actual fun getAvailableTools(): List<Tool> {
                 })
             }
 
-            if (appSettings.isToolEnabled("caldav_list_events")) {
+            if (appSettings.isToolEnabled("caldav_fetch_events")) {
                 add(object : Tool {
                     override val schema = ToolSchema(
-                        "caldav_list_events",
+                        "caldav_fetch_events",
                         "List calendar events and tasks-with-due-dates from the CalDAV server within a date range. Returns up to 20 items per page; use offset to get next pages.",
                         mapOf(
                             "from_date" to ParameterSchema("string", "Start of range in iCalendar UTC format, e.g. '20240101T000000Z'", true),
@@ -788,10 +788,10 @@ actual fun getAvailableTools(): List<Tool> {
                 })
             }
 
-            if (appSettings.isToolEnabled("caldav_list_tasks")) {
+            if (appSettings.isToolEnabled("caldav_fetch_tasks")) {
                 add(object : Tool {
                     override val schema = ToolSchema(
-                        "caldav_list_tasks",
+                        "caldav_fetch_tasks",
                         "List tasks (VTODO) from the CalDAV server. Returns up to 20 tasks per page; use offset to get next pages.",
                         mapOf(
                             "include_completed" to ParameterSchema("boolean", "Include completed tasks (default: false)", false),

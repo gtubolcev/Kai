@@ -2014,6 +2014,16 @@ class RemoteDataRepository(
         localInferenceEngine?.release()
     }
 
+    override suspend fun preloadLocalModel() {
+        val engine = localInferenceEngine ?: return
+        if (engine.engineState.value == EngineState.READY) return
+        val model = engine.getDownloadedModels().firstOrNull() ?: return
+        val catalogModel = engine.getAvailableModels().find { it.id == model.id }
+        val storedContext = appSettings.getModelContextTokens(model.id)
+        val contextTokens = if (storedContext > 0) storedContext else catalogModel?.defaultContextTokens ?: 0
+        runCatching { engine.initialize(model, contextTokens) }
+    }
+
     override fun startLocalModelDownload(model: LocalModel) {
         val token = appSettings.getHfToken().ifBlank { null }
         localInferenceEngine?.startDownload(model, token)

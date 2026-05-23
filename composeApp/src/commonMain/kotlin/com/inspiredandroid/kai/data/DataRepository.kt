@@ -201,6 +201,7 @@ interface DataRepository {
     fun getModelContextTokens(modelId: String): Int
     fun setModelContextTokens(modelId: String, contextTokens: Int)
     suspend fun releaseLocalEngine()
+    suspend fun preloadLocalModel()
     fun getLocalDownloadingModelId(): StateFlow<String?>?
     fun getLocalDownloadProgress(): StateFlow<Float?>?
     fun getLocalDownloadError(): StateFlow<DownloadError?>?

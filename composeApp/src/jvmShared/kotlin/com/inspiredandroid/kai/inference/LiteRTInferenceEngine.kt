@@ -489,7 +489,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
     }
 
     companion object {
-        private const val IDLE_RELEASE_MS = 5L * 60 * 1000 // 5 minutes
+        private const val IDLE_RELEASE_MS = 30L * 60 * 1000 // 30 minutes
         private const val INFERENCE_TIMEOUT_MS = 120_000L // 2 minutes
         private const val MAX_TOOL_ITERATIONS = 6
         private const val MIN_MEMORY_HEADROOM_BYTES = 512L * 1024 * 1024 // 512 MB

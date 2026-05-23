@@ -572,6 +572,7 @@ class FakeDataRepository : DataRepository {
     override fun getModelContextTokens(modelId: String): Int = 0
     override fun setModelContextTokens(modelId: String, contextTokens: Int) {}
     override suspend fun releaseLocalEngine() {}
+    override suspend fun preloadLocalModel() {}
     override fun getLocalDownloadingModelId(): StateFlow<String?>? = null
     override fun getLocalDownloadProgress(): StateFlow<Float?>? = null
     override fun getLocalDownloadError(): StateFlow<DownloadError?>? = null

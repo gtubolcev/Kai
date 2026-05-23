@@ -671,11 +671,12 @@ actual fun getAvailableTools(): List<Tool> {
                 add(object : Tool {
                     override val schema = ToolSchema(
                         "caldav_list_events",
-                        "List calendar events and tasks-with-due-dates from the CalDAV server within a date range. Returns both VEVENTs and VTODOs that fall in the range.",
+                        "List calendar events and tasks-with-due-dates from the CalDAV server within a date range. Returns up to 20 items per page; use offset to get next pages.",
                         mapOf(
                             "from_date" to ParameterSchema("string", "Start of range in iCalendar UTC format, e.g. '20240101T000000Z'", true),
                             "to_date" to ParameterSchema("string", "End of range in iCalendar UTC format, e.g. '20241231T235959Z'", true),
                             "calendar_name" to ParameterSchema("string", "Calendar slug to query, e.g. 'personal' or 'newcalendar'. Uses default if omitted.", false),
+                            "offset" to ParameterSchema("integer", "Skip this many items (for pagination, default 0)", false),
                         ),
                     )
 
@@ -685,6 +686,7 @@ actual fun getAvailableTools(): List<Tool> {
                         val toDate = args["to_date"] as? String
                             ?: return mapOf("success" to false, "error" to "to_date is required")
                         val calendarName = args["calendar_name"] as? String
+                        val offset = (args["offset"] as? Number)?.toInt() ?: 0
                         val targetUrl = calendarUrlFor(caldavUrl, calendarName)
                         val client = CaldavClient(caldavUsername, caldavPassword)
 
@@ -745,18 +747,19 @@ actual fun getAvailableTools(): List<Tool> {
                         if (items.isEmpty()) {
                             return mapOf("success" to true, "result" to "No events or tasks found in the given date range.")
                         }
-                        val limit = 20
-                        val shown = items.take(limit)
-                        val truncated = items.size > limit
-                        val formatted = shown.joinToString("\n") { item ->
+                        val pageSize = 20
+                        val page = items.drop(offset).take(pageSize)
+                        val hasMore = offset + pageSize < items.size
+                        val rangeEnd = minOf(offset + pageSize, items.size)
+                        val formatted = page.joinToString("\n") { item ->
                             if (item["type"] == "task") {
                                 "- ${item["summary"]} (task, due: ${item["due"]})"
                             } else {
                                 "- ${item["summary"]} (event, start: ${item["start"]}, end: ${item["end"]})"
                             }
                         }
-                        val suffix = if (truncated) "\n(${items.size - limit} more not shown)" else ""
-                        return mapOf("success" to true, "count" to items.size, "result" to "Found ${items.size} item(s):\n$formatted$suffix")
+                        val nextHint = if (hasMore) "\nTo see more, call again with offset=$rangeEnd." else ""
+                        return mapOf("success" to true, "count" to items.size, "result" to "Showing ${offset + 1}–$rangeEnd of ${items.size}:\n$formatted$nextHint")
                     }
                 })
             }
@@ -789,14 +792,16 @@ actual fun getAvailableTools(): List<Tool> {
                 add(object : Tool {
                     override val schema = ToolSchema(
                         "caldav_list_tasks",
-                        "List tasks (VTODO) from the CalDAV server",
+                        "List tasks (VTODO) from the CalDAV server. Returns up to 20 tasks per page; use offset to get next pages.",
                         mapOf(
                             "include_completed" to ParameterSchema("boolean", "Include completed tasks (default: false)", false),
+                            "offset" to ParameterSchema("integer", "Skip this many tasks (for pagination, default 0)", false),
                         ),
                     )
 
                     override suspend fun execute(args: Map<String, Any>): Any {
                         val includeCompleted = (args["include_completed"] as? Boolean) ?: false
+                        val offset = (args["offset"] as? Number)?.toInt() ?: 0
 
                         val statusFilter = if (!includeCompleted) {
                             """
@@ -822,17 +827,18 @@ actual fun getAvailableTools(): List<Tool> {
                             if (tasks.isEmpty()) {
                                 mapOf("success" to true, "result" to "No tasks found.")
                             } else {
-                                val limit = 20
-                                val shown = tasks.take(limit)
-                                val truncated = tasks.size > limit
-                                val formatted = shown.joinToString("\n") { props ->
+                                val pageSize = 20
+                                val page = tasks.drop(offset).take(pageSize)
+                                val hasMore = offset + pageSize < tasks.size
+                                val rangeEnd = minOf(offset + pageSize, tasks.size)
+                                val formatted = page.joinToString("\n") { props ->
                                     val summary = props["SUMMARY"] ?: ""
                                     val due = props["DUE"]?.let { ", due: $it" } ?: ""
                                     val status = props["STATUS"] ?: "NEEDS-ACTION"
                                     "- $summary (status: $status$due)"
                                 }
-                                val suffix = if (truncated) "\n(${tasks.size - limit} more not shown)" else ""
-                                mapOf("success" to true, "count" to tasks.size, "result" to "Found ${tasks.size} task(s):\n$formatted$suffix")
+                                val nextHint = if (hasMore) "\nTo see more, call again with offset=$rangeEnd." else ""
+                                mapOf("success" to true, "count" to tasks.size, "result" to "Showing ${offset + 1}–$rangeEnd of ${tasks.size}:\n$formatted$nextHint")
                             }
                         } else {
                             mapOf("success" to false, "error" to (result.exceptionOrNull()?.message ?: "Failed to list tasks"))

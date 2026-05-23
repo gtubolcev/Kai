@@ -103,13 +103,8 @@ internal const val LOCAL_TOOL_USE_SECTION =
         "Only call a tool when the user explicitly asks you to look something up or interact with an external service. " +
         "Writing, composing, creating, or generating content (lists, texts, plans, ideas) — do that directly in your reply, no tools. " +
         "'Create a list', 'make a list', 'write a list' = write text. Do NOT call caldav_fetch_tasks or any tool for these. " +
-        "Only call caldav_fetch_tasks or caldav_fetch_events when the user says 'show my calendar', 'what tasks do I have', or similar.\n\n" +
-        "## Markdown Checklists\n" +
-        "To create an interactive checklist or shopping list, write items using this exact syntax — no tool needed:\n" +
-        "- [ ] item one\n" +
-        "- [ ] item two\n" +
-        "- [ ] item three\n" +
-        "The app renders these as tappable checkboxes automatically. Always use this format when the user asks for a checklist, shopping list, to-do list, or any list with checkboxes."
+        "Only call caldav_fetch_tasks or caldav_fetch_events when the user says 'show my calendar', 'what tasks do I have', or similar.\n" +
+        "Checklist/shopping list → write `- [ ] item` lines (no tool needed, the app renders them as tappable checkboxes)."
 
 /**
  * Universal acting-vs-clarifying policy composed into every chat variant. Caps the

@@ -508,6 +508,9 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             val success = obj["success"]?.jsonPrimitive?.contentOrNull
             if (success == "false") return obj["error"]?.jsonPrimitive?.contentOrNull ?: result
 
+            // If the tool already returned a pre-formatted result string, use it directly.
+            obj["result"]?.jsonPrimitive?.contentOrNull?.let { return it }
+
             return when {
                 toolName == "caldav_list_tasks" -> {
                     val tasks = obj["tasks"]?.jsonArray ?: return result

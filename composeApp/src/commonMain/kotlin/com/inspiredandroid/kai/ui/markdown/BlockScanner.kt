@@ -351,8 +351,20 @@ internal object BlockScanner {
 
             val marker = if (isOrdered) match.groupValues[2] + match.groupValues[3] else match.groupValues[2]
             val spacing = if (isOrdered) match.groupValues[4] else match.groupValues[3]
-            val content = if (isOrdered) match.groupValues[5] else match.groupValues[4]
+            val rawContent = if (isOrdered) match.groupValues[5] else match.groupValues[4]
             val contentCol = listIndent + marker.length + spacing.length
+
+            // GFM task list: "[ ] text" or "[x] text" / "[X] text"
+            val checked: Boolean?
+            val content: String
+            if (rawContent.startsWith("[ ] ")) {
+                checked = false; content = rawContent.substring(4)
+            } else if (rawContent.length >= 4 && rawContent.startsWith("[") &&
+                (rawContent[1] == 'x' || rawContent[1] == 'X') && rawContent.startsWith("] ", 2)) {
+                checked = true; content = rawContent.substring(4)
+            } else {
+                checked = null; content = rawContent
+            }
 
             val itemLines = mutableListOf(content)
             var j = i + 1
@@ -383,7 +395,7 @@ internal object BlockScanner {
             }
 
             val children = scanLines(itemLines, 0, itemLines.size, depth + 1)
-            items += ListItem(children)
+            items += ListItem(children, checked)
             i = j
         }
 

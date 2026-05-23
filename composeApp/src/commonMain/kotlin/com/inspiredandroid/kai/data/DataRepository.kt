@@ -54,6 +54,7 @@ interface DataRepository {
     fun regenerate()
     fun popLastExchange()
     fun truncateFrom(messageId: String)
+    fun updateMessageCheckbox(historyId: String, index: Int, checked: Boolean)
     fun restoreCurrentConversation()
 
     // Tool management

@@ -28,4 +28,5 @@ data class ChatActions(
     val goBackInteractiveMode: () -> Unit,
     val sendSmsDraft: (String) -> Unit,
     val discardSmsDraft: (String) -> Unit,
+    val toggleCheckbox: (historyId: String, index: Int, checked: Boolean) -> Unit,
 )

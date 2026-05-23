@@ -273,6 +273,8 @@ class FakeDataRepository : DataRepository {
         }
     }
 
+    override fun updateMessageCheckbox(historyId: String, index: Int, checked: Boolean) {}
+
     override fun restoreCurrentConversation() {
         // No-op in tests
     }

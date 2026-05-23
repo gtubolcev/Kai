@@ -69,6 +69,7 @@ class ChatViewModel(
         goBackInteractiveMode = ::goBackInteractiveMode,
         sendSmsDraft = ::sendSmsDraft,
         discardSmsDraft = ::discardSmsDraft,
+        toggleCheckbox = ::toggleCheckbox,
     )
     private val freeModeNames: Map<FreeMode, String> = FreeMode.entries.associateWith { "Free ${it.modelId.replaceFirstChar { c -> c.uppercase() }}" }
     private var currentJob: Job? = null
@@ -459,6 +460,10 @@ class ChatViewModel(
         if (_state.value.isLoading) return
         dataRepository.truncateFrom(messageId)
         submitUiCallback(event, data)
+    }
+
+    private fun toggleCheckbox(historyId: String, index: Int, checked: Boolean) {
+        dataRepository.updateMessageCheckbox(historyId, index, checked)
     }
 
     private fun goBackInteractiveMode() {

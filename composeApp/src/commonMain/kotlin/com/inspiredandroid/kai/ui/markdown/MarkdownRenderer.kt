@@ -45,10 +45,20 @@ fun MarkdownContent(
     onUiCallback: (event: String, data: Map<String, String>) -> Unit = { _, _ -> },
     frozen: FrozenSubmission? = null,
 ) {
+    // Pre-compute the starting checkbox index for each block so checkboxes are
+    // numbered globally (0, 1, 2, …) across the whole document.
+    val blockCheckboxStarts = remember(document) {
+        var count = 0
+        document.blocks.map { block ->
+            val start = count
+            if (block is BulletList) count += block.items.count { it.checked != null }
+            start
+        }
+    }
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         Column(modifier) {
-            for (block in document.blocks) {
-                BlockRenderer(block, isInteractive, onUiCallback, frozen)
+            document.blocks.forEachIndexed { i, block ->
+                BlockRenderer(block, isInteractive, onUiCallback, frozen, blockCheckboxStarts[i])
             }
         }
     }
@@ -76,6 +86,7 @@ private fun BlockRenderer(
     isInteractive: Boolean,
     onUiCallback: (String, Map<String, String>) -> Unit,
     frozen: FrozenSubmission?,
+    checkboxStartIndex: Int = 0,
 ) {
     when (block) {
         is Heading -> HeadingBlock(block)
@@ -94,7 +105,7 @@ private fun BlockRenderer(
 
         is Blockquote -> BlockquoteBlock(block, isInteractive, onUiCallback, frozen)
 
-        is BulletList -> BulletListBlock(block, isInteractive, onUiCallback, frozen)
+        is BulletList -> BulletListBlock(block, isInteractive, onUiCallback, frozen, checkboxStartIndex)
 
         is OrderedList -> OrderedListBlock(block, isInteractive, onUiCallback, frozen)
 
@@ -197,10 +208,13 @@ private fun BulletListBlock(
     isInteractive: Boolean,
     onUiCallback: (String, Map<String, String>) -> Unit,
     frozen: FrozenSubmission?,
+    checkboxStartIndex: Int = 0,
 ) {
     Column(modifier = Modifier.padding(vertical = 2.dp)) {
+        var checkboxCount = 0
         for (item in block.items) {
-            ListItemRow("•", 16.dp, item, isInteractive, onUiCallback, frozen)
+            val cbIndex = if (item.checked != null) checkboxStartIndex + checkboxCount++ else -1
+            ListItemRow("•", 16.dp, item, isInteractive, onUiCallback, frozen, cbIndex)
         }
     }
 }
@@ -227,13 +241,24 @@ private fun ListItemRow(
     isInteractive: Boolean,
     onUiCallback: (String, Map<String, String>) -> Unit,
     frozen: FrozenSubmission?,
+    checkboxIndex: Int = -1,
 ) {
-    Row {
-        Text(
-            text = marker,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.width(markerWidth).padding(end = 4.dp),
-        )
+    Row(verticalAlignment = Alignment.Top) {
+        if (item.checked != null && checkboxIndex >= 0) {
+            androidx.compose.material3.Checkbox(
+                checked = item.checked,
+                onCheckedChange = { nowChecked ->
+                    onUiCallback("checkbox", mapOf("index" to checkboxIndex.toString(), "checked" to nowChecked.toString()))
+                },
+                modifier = Modifier.padding(end = 4.dp).align(Alignment.CenterVertically),
+            )
+        } else {
+            Text(
+                text = marker,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.width(markerWidth).padding(end = 4.dp),
+            )
+        }
         Column(Modifier.fillMaxWidth()) {
             item.children.forEach { BlockRenderer(it, isInteractive, onUiCallback, frozen) }
         }

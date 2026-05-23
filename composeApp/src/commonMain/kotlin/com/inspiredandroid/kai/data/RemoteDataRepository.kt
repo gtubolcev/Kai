@@ -1461,6 +1461,25 @@ class RemoteDataRepository(
         }
     }
 
+    override fun updateMessageCheckbox(historyId: String, index: Int, checked: Boolean) {
+        chatHistory.update { history ->
+            history.map { entry ->
+                if (entry.id != historyId) return@map entry
+                val newContent = toggleNthCheckbox(entry.content, index, checked)
+                entry.copy(content = newContent)
+            }
+        }
+    }
+
+    private fun toggleNthCheckbox(content: String, targetIndex: Int, checked: Boolean): String {
+        var count = 0
+        return content.replace(Regex("- \\[[ xX]] ")) { match ->
+            val i = count++
+            if (i == targetIndex) if (checked) "- [x] " else "- [ ] "
+            else match.value
+        }
+    }
+
     override fun restoreCurrentConversation() {
         // One-time migration for existing users: pin the latest conversation as the new
         // "current" pointer so the upgrade is non-disruptive.

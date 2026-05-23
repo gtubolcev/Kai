@@ -786,7 +786,13 @@ private fun ChatModeScreen(
                                                         onRegenerate = if (isLastAssistant) uiState.actions.regenerate else null,
                                                         isInteractive = isLastAssistant && !uiState.isLoading && frozen == null,
                                                         onUiCallback = { event, data ->
-                                                            uiState.actions.submitUiCallback(event, data)
+                                                            if (event == "checkbox") {
+                                                                val idx = data["index"]?.toIntOrNull() ?: return@BotMessage
+                                                                val chk = data["checked"]?.toBoolean() ?: return@BotMessage
+                                                                uiState.actions.toggleCheckbox(history.id, idx, chk)
+                                                            } else {
+                                                                uiState.actions.submitUiCallback(event, data)
+                                                            }
                                                         },
                                                         frozen = frozen,
                                                         onResubmit = if (pairedUserId != null && !uiState.isLoading) {

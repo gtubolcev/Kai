@@ -37,7 +37,7 @@ data class OrderedList(
 ) : BlockNode
 
 @Immutable
-data class ListItem(val children: ImmutableList<BlockNode>)
+data class ListItem(val children: ImmutableList<BlockNode>, val checked: Boolean? = null)
 
 @Immutable
 data class Table(

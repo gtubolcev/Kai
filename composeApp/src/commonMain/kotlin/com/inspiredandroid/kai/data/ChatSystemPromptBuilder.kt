@@ -93,6 +93,18 @@ internal const val DEFAULT_TOOL_USE_SECTION =
         "Summarize noisy output and state any uncertainty — don't dump raw logs."
 
 /**
+ * Conservative tool-use policy for the on-device variant. Small models (≤1.5B) tend to
+ * call any available tool even when the request has nothing to do with it — e.g., calling
+ * caldav_list_events when asked to write a shopping list. Explicit "only when asked"
+ * wording suppresses that behaviour without disabling tools entirely.
+ */
+internal const val LOCAL_TOOL_USE_SECTION =
+    "## Tool Use\n" +
+        "Only call a tool when the user explicitly asks you to use it or retrieve external information. " +
+        "For general tasks — writing, lists, questions, advice — answer directly without calling any tool. " +
+        "Never call calendar, CalDAV, or location tools unless the user specifically mentions calendar, events, or tasks."
+
+/**
  * Universal acting-vs-clarifying policy composed into every chat variant. Caps the
  * model's tendency to ask multiple clarifying questions and to give up after the first
  * failed attempt. Constant rather than soul-embedded so soul customization can't drop it.
@@ -163,7 +175,7 @@ internal fun buildChatSystemPrompt(
     // Tool-use + when-to-act policies always render in both variants. They're behavioral
     // fundamentals that survive soul customization, same rationale as the honesty rule.
     if (isNotEmpty()) append("\n\n")
-    append(DEFAULT_TOOL_USE_SECTION)
+    append(if (variant == SystemPromptVariant.CHAT_LOCAL) LOCAL_TOOL_USE_SECTION else DEFAULT_TOOL_USE_SECTION)
     if (isNotEmpty()) append("\n\n")
     append(DEFAULT_ACTING_SECTION)
 

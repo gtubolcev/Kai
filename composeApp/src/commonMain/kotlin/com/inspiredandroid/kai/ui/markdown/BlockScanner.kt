@@ -354,14 +354,15 @@ internal object BlockScanner {
             val rawContent = if (isOrdered) match.groupValues[5] else match.groupValues[4]
             val contentCol = listIndent + marker.length + spacing.length
 
-            // GFM task list: "[ ] text" or "[x] text" / "[X] text"
+            // GFM task list: "[ ] text", "[x] text", or lenient variants like "[( ] text)]"
+            // that small LLMs sometimes produce.
             val checked: Boolean?
             val content: String
-            if (rawContent.startsWith("[ ] ")) {
-                checked = false; content = rawContent.substring(4)
-            } else if (rawContent.length >= 4 && rawContent.startsWith("[") &&
-                (rawContent[1] == 'x' || rawContent[1] == 'X') && rawContent.startsWith("] ", 2)) {
-                checked = true; content = rawContent.substring(4)
+            val cbMatch = Regex("^\\[([^\\]]{0,8})\\]\\s*").find(rawContent)
+            if (cbMatch != null) {
+                checked = cbMatch.groupValues[1].any { it.lowercaseChar() == 'x' }
+                content = rawContent.substring(cbMatch.value.length)
+                    .trimEnd(')', ']').trim()
             } else {
                 checked = null; content = rawContent
             }

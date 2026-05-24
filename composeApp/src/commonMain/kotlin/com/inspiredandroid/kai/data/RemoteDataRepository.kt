@@ -511,19 +511,39 @@ class RemoteDataRepository(
 
     private fun postProcessLocalResponse(content: String, userText: String): String {
         val isChecklistRequest = userText.contains(Regex(
-            "check(box|list)|shopping.list|список.покупок|чеклист|галочк",
+            "check(box|list)|shopping.list|список.покупок|чеклист|галочк|make.+list|create.+list|сделай.+список|составь.+список",
             RegexOption.IGNORE_CASE,
         ))
         if (content.isBlank()) return content
         if (!isChecklistRequest) return content
-        // If model produced plain bullets without [ ], promote them to checkboxes.
+
         val hasBullets = content.contains(Regex("^- (?!\\[)", RegexOption.MULTILINE))
         val hasCheckboxes = content.contains(Regex("^- \\[", RegexOption.MULTILINE))
-        return if (hasBullets && !hasCheckboxes) {
-            content.replace(Regex("^(- )(?!\\[)", RegexOption.MULTILINE), "- [ ] ")
-        } else {
-            content
+
+        // Case 1: plain bullets without checkboxes → promote to checkboxes.
+        if (hasBullets && !hasCheckboxes) {
+            return content.replace(Regex("^(- )(?!\\[)", RegexOption.MULTILINE), "- [ ] ")
         }
+
+        // Case 2: already has checkboxes → leave as-is.
+        if (hasCheckboxes) return content
+
+        // Case 3: prose response with comma-separated items → extract and reformat.
+        // Find the last sentence that contains a comma-separated enumeration.
+        val commaListRegex = Regex("""([A-Za-zА-Яа-яёЁ][^.!?\n]*(?:,\s*[A-Za-zА-Яа-яёЁ][^,!?\n]*){2,})[.!]?$""")
+        val match = commaListRegex.find(content) ?: return content
+        val rawList = match.groupValues[1]
+        // Split on commas and "and"/"и" before the last item.
+        val items = rawList
+            .split(Regex(",\\s*|\\s+and\\s+|\\s+и\\s+"))
+            .map { it.trim().trimEnd('.', '!', '?') }
+            .filter { it.isNotBlank() }
+        if (items.size < 2) return content
+
+        // Preserve any preamble text before the list, append checklist.
+        val preamble = content.substring(0, match.range.first).trimEnd()
+        val checklist = items.joinToString("\n") { "- [ ] $it" }
+        return if (preamble.isNotBlank()) "$preamble\n\n$checklist" else checklist
     }
 
     /**

@@ -369,10 +369,11 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 // inside <think> and then outputs plain text in the actual response.
                 val toolCall = if (tools.isNotEmpty()) parseFirstToolCall(raw) else null
                 if (toolCall == null) {
+                    val hadIncomplete = text.isBlank() && raw.contains("<tool_call>")
                     val finalText = text.ifBlank {
                         if (iteration > 0) "…" else text
                     }
-                    return@withContext LocalChatResult(content = finalText, reasoningContent = firstReasoning)
+                    return@withContext LocalChatResult(content = finalText, reasoningContent = firstReasoning, hadIncompleteToolCall = hadIncomplete)
                 }
 
                 val localTool = tools.find { it.name == toolCall.name }

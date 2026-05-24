@@ -77,6 +77,7 @@ data class LocalTool(
 data class LocalChatResult(
     val content: String,
     val reasoningContent: String? = null,
+    val hadIncompleteToolCall: Boolean = false,
 )
 
 class InsufficientMemoryException : Exception()

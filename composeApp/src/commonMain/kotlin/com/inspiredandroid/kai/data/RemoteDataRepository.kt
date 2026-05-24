@@ -482,7 +482,7 @@ class RemoteDataRepository(
             }
         }
 
-        return try {
+        val result = try {
             engine.chat(messages = inferenceMessages, systemPrompt = systemPrompt, tools = localTools)
         } catch (e: RuntimeException) {
             if (e is kotlinx.coroutines.CancellationException) throw e
@@ -494,6 +494,17 @@ class RemoteDataRepository(
             println("LiteRT: tool-call parser failed (${e.message?.take(200)}). Falling back to plain chat.")
             engine.chat(messages = inferenceMessages, systemPrompt = systemPrompt, tools = emptyList())
         }
+
+        // Small models (Qwen2.5-1.5B) sometimes emit an incomplete <tool_call> opening
+        // tag for requests that should be answered as plain text (e.g. "create a shopping
+        // list"). stripToolCallBlocks() removes the fragment, leaving an empty response.
+        // Retry without tools so the model produces plain text instead.
+        if (result.content.isBlank() && result.hadIncompleteToolCall) {
+            println("LiteRT: retrying without tools after incomplete tool call")
+            return engine.chat(messages = inferenceMessages, systemPrompt = systemPrompt, tools = emptyList())
+        }
+
+        return result
     }
 
     private fun LocalChatResult.toAssistantTurn() = AssistantTurn(content, reasoningContent)

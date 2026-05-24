@@ -498,6 +498,23 @@ class RemoteDataRepository(
 
     private fun LocalChatResult.toAssistantTurn() = AssistantTurn(content, reasoningContent)
 
+    private fun postProcessLocalResponse(content: String, userText: String): String {
+        val isChecklistRequest = userText.contains(Regex(
+            "check(box|list)|shopping.list|список.покупок|чеклист|галочк",
+            RegexOption.IGNORE_CASE,
+        ))
+        if (content.isBlank()) return content
+        if (!isChecklistRequest) return content
+        // If model produced plain bullets without [ ], promote them to checkboxes.
+        val hasBullets = content.contains(Regex("^- (?!\\[)", RegexOption.MULTILINE))
+        val hasCheckboxes = content.contains(Regex("^- \\[", RegexOption.MULTILINE))
+        return if (hasBullets && !hasCheckboxes) {
+            content.replace(Regex("^(- )(?!\\[)", RegexOption.MULTILINE), "- [ ] ")
+        } else {
+            content
+        }
+    }
+
     /**
      * Cached OpenAPI/OpenAI-style JSON descriptions for local tools, keyed by tool name.
      * Schemas are static for allowlisted tools, so serializing them once per tool avoids
@@ -618,7 +635,10 @@ class RemoteDataRepository(
             // (`ask()`/`askWithTools()`) pre-fetched a CHAT_REMOTE prompt, but on-device
             // needs the trimmed variant.
             val localPrompt = getActiveSystemPrompt(SystemPromptVariant.CHAT_LOCAL)
-            return askWithLocalEngine(messages, localPrompt, instanceId, history).toAssistantTurn()
+            val localResult = askWithLocalEngine(messages, localPrompt, instanceId, history)
+            val lastUserText = messages.lastOrNull { it.role == History.Role.USER }?.content.orEmpty()
+            val postProcessed = postProcessLocalResponse(localResult.content, lastUserText)
+            return localResult.copy(content = postProcessed).toAssistantTurn()
         }
 
         val creds = instanceCredentials(instanceId, service)
